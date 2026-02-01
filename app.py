@@ -6,9 +6,8 @@ import plotly.graph_objects as go
 import gdown
 import os
 import zipfile
-from typing import Optional, Dict, Tuple, List
+from typing import Optional, Dict
 import warnings
-from sklearn.metrics.pairwise import cosine_similarity
 
 warnings.filterwarnings('ignore')
 
@@ -22,32 +21,30 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Professional CSS with horizontal navigation
+# Professional CSS
 st.markdown("""
     <style>
-    .main { padding-top: 0.5rem; }
-    .header-title { font-size: 3.5rem; font-weight: 900; background: linear-gradient(135deg, #E50019 0%, #FF6B6B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.3rem; letter-spacing: -1px; }
-    .subtitle { font-size: 1.2rem; color: #666; margin-bottom: 1.5rem; font-weight: 500; }
-    .nav-container { display: flex; gap: 10px; margin-bottom: 2rem; flex-wrap: wrap; }
-    .nav-button { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; transition: all 0.3s; }
-    .nav-button-active { background: linear-gradient(135deg, #E50019 0%, #FF6B6B 100%); color: white; box-shadow: 0 4px 12px rgba(229, 0, 25, 0.3); }
-    .nav-button-inactive { background: #f0f0f0; color: #333; }
-    .nav-button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-    .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 2rem; }
-    .kpi-card { background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%); padding: 20px; border-radius: 10px; border-left: 4px solid #E50019; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .kpi-value { font-size: 2rem; font-weight: 900; color: #E50019; }
-    .kpi-label { font-size: 0.9rem; color: #666; margin-top: 5px; }
-    .alert-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 5px; margin: 10px 0; }
-    .alert-success { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; border-radius: 5px; margin: 10px 0; }
-    .filter-section { background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 1.5rem; border: 1px solid #e0e0e0; }
+    * { margin: 0; padding: 0; }
+    .main { padding: 2rem 1rem; }
+    .header-title { font-size: 3.5rem; font-weight: 900; background: linear-gradient(135deg, #E50019 0%, #FF6B6B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; letter-spacing: -1px; }
+    .subtitle { font-size: 1.1rem; color: #555; margin-bottom: 2rem; font-weight: 500; }
+    .nav-container { display: flex; gap: 8px; margin-bottom: 2rem; flex-wrap: wrap; }
+    .nav-button { padding: 12px 18px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: all 0.3s ease; background: #f0f0f0; color: #333; }
+    .nav-button:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(229, 0, 25, 0.2); }
+    .filter-box { background: linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%); padding: 20px; border-radius: 12px; border: 1px solid #e8e8e8; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+    .filter-title { font-size: 1.1rem; font-weight: 700; color: #E50019; margin-bottom: 15px; }
+    .metric-card { background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%); padding: 20px; border-radius: 10px; border-left: 4px solid #E50019; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
     .persona-card { background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%); padding: 20px; border-radius: 10px; border-left: 4px solid #E50019; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-    .persona-name { font-size: 1.5rem; font-weight: 700; color: #E50019; }
-    .persona-stat { font-size: 0.9rem; color: #666; margin: 5px 0; }
+    .persona-name { font-size: 1.3rem; font-weight: 700; color: #E50019; margin-bottom: 10px; }
+    .persona-stat { font-size: 0.95rem; color: #666; margin: 6px 0; line-height: 1.5; }
+    .insight-box { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border-left: 4px solid #28a745; padding: 15px; border-radius: 8px; margin: 15px 0; }
+    .insight-title { font-weight: 700; color: #1b5e20; margin-bottom: 8px; }
+    .insight-text { color: #2e7d32; font-size: 0.95rem; line-height: 1.6; }
     </style>
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# DATA LOADING FUNCTIONS
+# DATA LOADING
 # ============================================================================
 
 def ensure_data_dir():
@@ -157,44 +154,6 @@ except Exception as e:
     st.stop()
 
 # ============================================================================
-# GLOBAL FILTERS (SIDEBAR)
-# ============================================================================
-st.sidebar.markdown("## 🎯 H & M Strategic BI")
-st.sidebar.markdown("---")
-
-df_articles = data['article_master_web'].copy()
-
-# Global Filters
-selected_moods = st.sidebar.multiselect(
-    "🎭 Filter by Emotion (Global)",
-    sorted(df_articles['mood'].unique().tolist()),
-    default=sorted(df_articles['mood'].unique().tolist())
-)
-
-selected_sections = st.sidebar.multiselect(
-    "📂 Filter by Section (Global)",
-    sorted(df_articles['section_name'].unique().tolist()),
-    default=sorted(df_articles['section_name'].unique().tolist())
-)
-
-price_range = st.sidebar.slider(
-    "💵 Price Range ($) (Global)",
-    float(df_articles['price'].min()),
-    float(df_articles['price'].max()),
-    (float(df_articles['price'].min()), float(df_articles['price'].max()))
-)
-
-# Apply global filters
-df_filtered = df_articles[
-    (df_articles['mood'].isin(selected_moods)) &
-    (df_articles['section_name'].isin(selected_sections)) &
-    (df_articles['price'] >= price_range[0]) &
-    (df_articles['price'] <= price_range[1])
-].copy()
-
-st.sidebar.markdown("---")
-
-# ============================================================================
 # HORIZONTAL NAVIGATION
 # ============================================================================
 pages = [
@@ -206,50 +165,81 @@ pages = [
     "📈 Financial Impact & Performance"
 ]
 
-# Initialize session state for page
 if 'current_page' not in st.session_state:
     st.session_state.current_page = 0
 
-# Create horizontal navigation
 col_nav = st.columns(len(pages))
 for idx, page_name in enumerate(pages):
     with col_nav[idx]:
-        if st.button(page_name, use_container_width=True, 
-                    key=f"nav_{idx}",
-                    help=f"Go to {page_name}"):
+        if st.button(page_name, use_container_width=True, key=f"nav_{idx}"):
             st.session_state.current_page = idx
 
 current_page = pages[st.session_state.current_page]
 
 # ============================================================================
+# GLOBAL DATA SETUP
+# ============================================================================
+df_articles = data['article_master_web'].copy()
+
 # PAGE 1: STRATEGIC COMMAND CENTER
 # ============================================================================
 if current_page == "📊 Strategic Command Center":
     st.markdown('<div class="header-title">📊 Strategic Command Center</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Executive North Star Metrics & Market Alignment</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Executive Intelligence & Market Alignment</div>', unsafe_allow_html=True)
     
     try:
-        # Executive North Star Metrics
-        st.subheader("📈 Executive North Star Metrics")
+        # Global Filters in professional box
+        st.markdown('<div class="filter-box">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">🎯 Global Filters</div>', unsafe_allow_html=True)
         
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            selected_moods = st.multiselect(
+                "🎭 Emotion",
+                sorted(df_articles['mood'].unique().tolist()),
+                default=sorted(df_articles['mood'].unique().tolist()),
+                key="p1_mood"
+            )
+        with col2:
+            selected_sections = st.multiselect(
+                "📂 Category",
+                sorted(df_articles['section_name'].unique().tolist()),
+                default=sorted(df_articles['section_name'].unique().tolist()),
+                key="p1_section"
+            )
+        with col3:
+            price_range = st.slider(
+                "💵 Price Range ($)",
+                float(df_articles['price'].min()),
+                float(df_articles['price'].max()),
+                (float(df_articles['price'].min()), float(df_articles['price'].max())),
+                key="p1_price"
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        df_filtered = df_articles[
+            (df_articles['mood'].isin(selected_moods)) &
+            (df_articles['section_name'].isin(selected_sections)) &
+            (df_articles['price'] >= price_range[0]) &
+            (df_articles['price'] <= price_range[1])
+        ].copy()
+        
+        # KPIs
+        st.subheader("📈 Executive North Star Metrics")
         col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
             total_revenue = (df_filtered['price'] * df_filtered['hotness_score']).sum()
             st.metric("💵 Revenue Potential", f"${total_revenue:,.0f}", "↑ 3.4%")
-        
         with col2:
             avg_hotness = df_filtered['hotness_score'].mean()
             st.metric("🔥 Hotness Velocity", f"{avg_hotness:.2f}", "↑ 2.1%")
-        
         with col3:
             emotion_count = df_filtered['mood'].nunique()
             st.metric("😊 Active Emotions", f"{emotion_count}", "↑ 1.2%")
-        
         with col4:
             total_skus = len(df_filtered)
             st.metric("📦 Total SKUs", f"{total_skus:,}", "↑ 5.1%")
-        
         with col5:
             avg_price = df_filtered['price'].mean()
             st.metric("💰 Avg Price", f"${avg_price:.2f}", "↑ 0.8%")
@@ -282,21 +272,12 @@ if current_page == "📊 Strategic Command Center":
         
         fig_bubble.add_hline(y=emotion_stats['Avg_Hotness'].median(), line_dash="dash", line_color="gray", opacity=0.5)
         fig_bubble.add_vline(x=emotion_stats['Avg_Price'].median(), line_dash="dash", line_color="gray", opacity=0.5)
-        
-        fig_bubble.update_layout(height=500, showlegend=True)
+        fig_bubble.update_layout(height=500, showlegend=True, template="plotly_white")
         st.plotly_chart(fig_bubble, use_container_width=True)
-        
-        st.markdown("""
-        **Zone Interpretation:**
-        - **High Growth/High Value** (Top-Right): Invest heavily
-        - **Saturated** (Top-Left): Optimize costs
-        - **Emerging** (Bottom-Right): Growth potential
-        - **Declining** (Bottom-Left): Consider divesting
-        """)
         
         st.divider()
         
-        # Seasonality & Sentiment Drift
+        # Seasonality
         st.subheader("📅 Seasonality & Sentiment Drift")
         
         emotions_list = df_filtered['mood'].unique()
@@ -320,15 +301,14 @@ if current_page == "📊 Strategic Command Center":
             labels={'Hotness': 'Hotness Score'},
             color_discrete_sequence=px.colors.qualitative.Set2
         )
-        fig_area.update_layout(height=400, hovermode='x unified')
+        fig_area.update_layout(height=400, hovermode='x unified', template="plotly_white")
         st.plotly_chart(fig_area, use_container_width=True)
         
         st.divider()
         
-        # AI Strategic Summary - Critical Alerts
-        st.subheader("⚠️ AI Strategic Summary - Critical Alerts")
+        # AI Strategic Summary - Advanced Analysis
+        st.subheader("⚠️ AI Strategic Summary - Critical Insights")
         
-        # Research Questions
         research_questions = {
             "Q1": "Which emotions drive the highest revenue potential?",
             "Q2": "What is the relationship between product price and hotness score?",
@@ -348,48 +328,105 @@ if current_page == "📊 Strategic Command Center":
             key="research_q"
         )
         
-        # Generate AI insights based on question
         if selected_question:
             st.info(f"📊 Analyzing: {selected_question}")
             
-            # Sample insights based on question
+            # Comprehensive AI Analysis
             if "revenue" in selected_question.lower():
-                top_emotion = df_filtered.groupby('mood').apply(lambda x: (x['price'] * x['hotness_score']).sum()).idxmax()
-                st.success(f"💡 **Insight:** {top_emotion} generates the highest revenue potential at ${df_filtered[df_filtered['mood']==top_emotion]['price'].sum():,.0f}")
+                emotion_revenue = df_filtered.groupby('mood').apply(lambda x: (x['price'] * x['hotness_score']).sum()).sort_values(ascending=False)
+                top_emotion = emotion_revenue.index[0]
+                top_value = emotion_revenue.iloc[0]
+                
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    <strong>{top_emotion}</strong> generates the highest revenue potential at <strong>${top_value:,.0f}</strong>, 
+                    representing <strong>{(top_value/emotion_revenue.sum()*100):.1f}%</strong> of total revenue across all emotions.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Show revenue breakdown
+                revenue_breakdown = emotion_revenue.reset_index()
+                revenue_breakdown.columns = ['Emotion', 'Revenue']
+                
+                fig_rev = px.bar(revenue_breakdown, x='Emotion', y='Revenue', color='Revenue', 
+                               color_continuous_scale='RdYlGn', title="Revenue Distribution by Emotion")
+                fig_rev.update_layout(height=300, template="plotly_white")
+                st.plotly_chart(fig_rev, use_container_width=True)
             
             elif "price" in selected_question.lower():
                 corr = df_filtered['price'].corr(df_filtered['hotness_score'])
-                st.success(f"💡 **Insight:** Price and hotness correlation is {corr:.3f} - {'Strong positive' if corr > 0.3 else 'Weak'} relationship")
+                avg_price = df_filtered['price'].mean()
+                high_price_hotness = df_filtered[df_filtered['price'] > avg_price]['hotness_score'].mean()
+                low_price_hotness = df_filtered[df_filtered['price'] <= avg_price]['hotness_score'].mean()
+                
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    Price and hotness correlation is <strong>{corr:.3f}</strong> - indicating a <strong>{'strong positive' if corr > 0.3 else 'moderate' if corr > 0 else 'negative'}</strong> relationship.
+                    High-priced products (>${avg_price:.0f}) have <strong>{high_price_hotness:.2f}</strong> avg hotness vs 
+                    <strong>{low_price_hotness:.2f}</strong> for lower-priced items.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
             elif "category" in selected_question.lower():
-                top_category = df_filtered.groupby('section_name').apply(lambda x: (x['price'] * x['hotness_score']).sum()).idxmax()
-                st.success(f"💡 **Insight:** {top_category} is the top performing category")
+                category_revenue = df_filtered.groupby('section_name').apply(lambda x: (x['price'] * x['hotness_score']).sum()).sort_values(ascending=False)
+                top_category = category_revenue.index[0]
+                
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    <strong>{top_category}</strong> is the top-performing category with <strong>${category_revenue.iloc[0]:,.0f}</strong> revenue potential.
+                    Top 3 categories account for <strong>{(category_revenue.head(3).sum()/category_revenue.sum()*100):.1f}%</strong> of total category revenue.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            elif "inventory" in selected_question.lower():
+                inventory_by_emotion = df_filtered.groupby('mood').size()
+                avg_inv = inventory_by_emotion.mean()
+                
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    Current inventory is distributed across {len(inventory_by_emotion)} emotions with average {avg_inv:.0f} SKUs per emotion.
+                    Most stocked: <strong>{inventory_by_emotion.idxmax()}</strong> ({inventory_by_emotion.max()} SKUs),
+                    Least stocked: <strong>{inventory_by_emotion.idxmin()}</strong> ({inventory_by_emotion.min()} SKUs).
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            elif "seasonal" in selected_question.lower():
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    Seasonal analysis shows {len(emotions_list)} distinct emotional trends across 12 months.
+                    Peak season varies by emotion - recommend dynamic inventory allocation based on seasonal hotness patterns.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
             else:
-                st.success("💡 **Insight:** Analysis shows strong market alignment with current strategy")
-            
-            # Display related product images
-            st.subheader("📸 Related Products")
-            related_products = df_filtered.nlargest(6, 'hotness_score')
-            
-            cols = st.columns(3)
-            for idx, (_, product) in enumerate(related_products.iterrows()):
-                with cols[idx % 3]:
-                    img_path = get_image_path(product['article_id'], data['images_dir'])
-                    if img_path:
-                        st.image(img_path, caption=f"{product['prod_name']}\n${product['price']:.2f}", use_container_width=True)
-                    else:
-                        st.info(f"📦 {product['prod_name']}\n${product['price']:.2f}")
-                    
-                    if st.button("View Details", key=f"prod_{product['article_id']}"):
-                        st.session_state.selected_product = product['article_id']
-                        st.session_state.current_page = 4  # Go to Page 5
-                        st.rerun()
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    Portfolio analysis shows strong market alignment with {len(df_filtered)} active SKUs across {emotion_count} emotions.
+                    Current strategy demonstrates balanced emotion coverage with strategic revenue concentration.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
     
     except Exception as e:
         st.error(f"❌ Error on Page 1: {str(e)}")
 
-# ============================================================================
 # PAGE 2: ASSET OPTIMIZATION & PRICING
 # ============================================================================
 elif current_page == "🔍 Asset Optimization & Pricing":
@@ -397,62 +434,55 @@ elif current_page == "🔍 Asset Optimization & Pricing":
     st.markdown('<div class="subtitle">Dynamic Inventory Tiering & Price Elasticity</div>', unsafe_allow_html=True)
     
     try:
-        # Page-specific filters
-        st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-        st.subheader("🎯 Page Filters")
-        col1, col2, col3 = st.columns(3)
+        # Professional Filter Box
+        st.markdown('<div class="filter-box">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">🎯 Page Filters</div>', unsafe_allow_html=True)
         
+        col1, col2, col3 = st.columns(3)
         with col1:
             page2_emotions = st.multiselect(
-                "Filter by Emotion",
-                sorted(df_filtered['mood'].unique().tolist()),
-                default=sorted(df_filtered['mood'].unique().tolist()),
-                key="page2_emotion"
+                "🎭 Emotion",
+                sorted(df_articles['mood'].unique().tolist()),
+                default=sorted(df_articles['mood'].unique().tolist()),
+                key="p2_emotion"
             )
-        
         with col2:
             page2_categories = st.multiselect(
-                "Filter by Category",
-                sorted(df_filtered['section_name'].unique().tolist()),
-                default=sorted(df_filtered['section_name'].unique().tolist()),
-                key="page2_category"
+                "📂 Category",
+                sorted(df_articles['section_name'].unique().tolist()),
+                default=sorted(df_articles['section_name'].unique().tolist()),
+                key="p2_category"
             )
-        
         with col3:
             page2_groups = st.multiselect(
-                "Filter by Product Group",
-                sorted(df_filtered['product_group_name'].unique().tolist()),
-                default=sorted(df_filtered['product_group_name'].unique().tolist()),
-                key="page2_group"
+                "📦 Product Group",
+                sorted(df_articles['product_group_name'].unique().tolist()),
+                default=sorted(df_articles['product_group_name'].unique().tolist()),
+                key="p2_group"
             )
-        
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Apply page-specific filters
-        df_page2 = df_filtered[
-            (df_filtered['mood'].isin(page2_emotions)) &
-            (df_filtered['section_name'].isin(page2_categories)) &
-            (df_filtered['product_group_name'].isin(page2_groups))
+        df_page2 = df_articles[
+            (df_articles['mood'].isin(page2_emotions)) &
+            (df_articles['section_name'].isin(page2_categories)) &
+            (df_articles['product_group_name'].isin(page2_groups))
         ].copy()
         
         st.divider()
         
-        # Two main buttons for sections
+        # Two main sections
         col_btn1, col_btn2 = st.columns(2)
-        
         with col_btn1:
-            if st.button("💰 4-Tier Pricing Strategy - Click to View Products", use_container_width=True, key="btn_4tier"):
+            if st.button("💰 4-Tier Pricing Strategy - Click to View", use_container_width=True, key="btn_4tier"):
                 st.session_state.show_4tier = not st.session_state.get('show_4tier', False)
-        
         with col_btn2:
             if st.button("📊 Price Elasticity Simulator", use_container_width=True, key="btn_elasticity"):
                 st.session_state.show_elasticity = not st.session_state.get('show_elasticity', False)
         
-        # Section 1: 4-Tier Pricing Strategy
+        # Section 1: 4-Tier Pricing
         if st.session_state.get('show_4tier', False):
             st.subheader("💰 4-Tier Pricing Strategy")
             
-            df_page2['profit_margin'] = df_page2['price'] * 0.4
             df_page2['tier'] = df_page2['hotness_score'].apply(lambda x: 
                 '💎 Premium (>0.8)' if x > 0.8 else
                 '🔥 Trend (0.5-0.8)' if x > 0.5 else
@@ -463,26 +493,18 @@ elif current_page == "🔍 Asset Optimization & Pricing":
             tier_stats = df_page2.groupby('tier').agg({
                 'article_id': 'count',
                 'price': 'mean',
-                'hotness_score': 'mean',
-                'profit_margin': 'sum'
+                'hotness_score': 'mean'
             }).reset_index()
-            tier_stats.columns = ['Tier', 'Product_Count', 'Avg_Price', 'Avg_Hotness', 'Total_Profit']
+            tier_stats.columns = ['Tier', 'Count', 'Avg_Price', 'Avg_Hotness']
             
-            # Display tier statistics
             cols_tier = st.columns(4)
             for idx, (_, tier_row) in enumerate(tier_stats.iterrows()):
                 with cols_tier[idx]:
-                    st.metric(
-                        tier_row['Tier'],
-                        f"{tier_row['Product_Count']} SKUs",
-                        f"${tier_row['Avg_Price']:.2f} avg"
-                    )
+                    st.metric(tier_row['Tier'], f"{int(tier_row['Count'])} SKUs", f"${tier_row['Avg_Price']:.2f}")
             
             st.divider()
             
-            # Interactive tier selection
             selected_tier = st.selectbox("Select Tier to View Products", tier_stats['Tier'].tolist(), key="tier_select")
-            
             tier_products = df_page2[df_page2['tier'] == selected_tier].nlargest(12, 'hotness_score')
             
             st.subheader(f"Products in {selected_tier}")
@@ -495,21 +517,18 @@ elif current_page == "🔍 Asset Optimization & Pricing":
                     else:
                         st.info(f"📦 {product['prod_name']}\n${product['price']:.2f}")
         
-        # Section 2: Price Elasticity Simulator
+        # Section 2: Price Elasticity
         if st.session_state.get('show_elasticity', False):
             st.subheader("📊 Price Elasticity Simulator")
             
-            col_sliders1, col_sliders2 = st.columns(2)
+            col_s1, col_s2 = st.columns(2)
+            with col_s1:
+                price_adj_premium = st.slider("Premium Tier (%)", 0, 30, 10, key='premium_adj')
+                price_adj_stability = st.slider("Stability Tier (%)", -20, 20, -10, key='stability_adj')
+            with col_s2:
+                price_adj_trend = st.slider("Trend Tier (%)", -20, 20, 0, key='trend_adj')
+                price_adj_liquidation = st.slider("Liquidation Tier (%)", -30, 0, -20, key='liquidation_adj')
             
-            with col_sliders1:
-                price_adj_premium = st.slider("Premium Tier Price Adjustment (%)", 0, 30, 10, key='premium_adj')
-                price_adj_stability = st.slider("Stability Tier Price Adjustment (%)", -20, 20, -10, key='stability_adj')
-            
-            with col_sliders2:
-                price_adj_trend = st.slider("Trend Tier Price Adjustment (%)", -20, 20, 0, key='trend_adj')
-                price_adj_liquidation = st.slider("Liquidation Tier Price Adjustment (%)", -30, 0, -20, key='liquidation_adj')
-            
-            df_page2['profit_margin'] = df_page2['price'] * 0.4
             df_page2['tier'] = df_page2['hotness_score'].apply(lambda x: 
                 '💎 Premium (>0.8)' if x > 0.8 else
                 '🔥 Trend (0.5-0.8)' if x > 0.5 else
@@ -522,10 +541,6 @@ elif current_page == "🔍 Asset Optimization & Pricing":
             df_page2.loc[df_page2['tier'] == '🔥 Trend (0.5-0.8)', 'adjusted_price'] *= (1 + price_adj_trend/100)
             df_page2.loc[df_page2['tier'] == '⚖️ Stability (0.3-0.5)', 'adjusted_price'] *= (1 + price_adj_stability/100)
             df_page2.loc[df_page2['tier'] == '📉 Liquidation (<0.3)', 'adjusted_price'] *= (1 + price_adj_liquidation/100)
-            
-            df_page2['demand_multiplier'] = 1.0
-            df_page2.loc[df_page2['tier'] == '⚖️ Stability (0.3-0.5)', 'demand_multiplier'] = 1.15
-            df_page2.loc[df_page2['tier'] == '📉 Liquidation (<0.3)', 'demand_multiplier'] = 1.25
             
             elasticity_data = df_page2.groupby('tier').agg({
                 'price': 'mean',
@@ -541,30 +556,33 @@ elif current_page == "🔍 Asset Optimization & Pricing":
                 labels={'price': 'Original Price', 'adjusted_price': 'Adjusted Price'},
                 color_discrete_map={'price': '#E50019', 'adjusted_price': '#FF6B6B'}
             )
-            fig_elasticity.update_layout(height=400)
+            fig_elasticity.update_layout(height=400, template="plotly_white")
             st.plotly_chart(fig_elasticity, use_container_width=True)
             
+            revenue_change = (df_page2['adjusted_price'].sum() - df_page2['price'].sum()) / df_page2['price'].sum() * 100
             st.markdown(f"""
-            **Forecast Impact:**
-            - **Revenue Change:** +{(df_page2['adjusted_price'].sum() - df_page2['price'].sum()) / df_page2['price'].sum() * 100:.1f}%
-            - **Demand Increase:** +{(df_page2['demand_multiplier'].mean() - 1) * 100:.1f}%
-            """)
+            <div class="insight-box">
+                <div class="insight-title">📈 Forecast Impact:</div>
+                <div class="insight-text">
+                <strong>Revenue Change:</strong> +{revenue_change:.1f}% | 
+                <strong>Total Revenue Impact:</strong> ${(df_page2['adjusted_price'].sum() - df_page2['price'].sum()):,.0f}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
             
             st.divider()
             
-            # Managerial Action Table with conditional formatting
-            st.subheader("📋 Managerial Action Table - Action Required")
-            
+            # Action Table
+            st.subheader("📋 Managerial Action Table")
             action_df = df_page2[df_page2['hotness_score'] < 0.4].sort_values('hotness_score')[['prod_name', 'price', 'hotness_score', 'tier', 'mood']].head(15).copy()
-            action_df.columns = ['Product Name', 'Price', 'Hotness', 'Tier', 'Emotion']
+            action_df.columns = ['Product', 'Price', 'Hotness', 'Tier', 'Emotion']
             action_df['Action'] = action_df['Tier'].apply(lambda x: '🔴 CLEARANCE' if 'Liquidation' in x else '🟡 DISCOUNT')
             
-            st.dataframe(action_df, use_container_width=True)
+            st.dataframe(action_df, use_container_width=True, hide_index=True)
     
     except Exception as e:
         st.error(f"❌ Error on Page 2: {str(e)}")
 
-# ============================================================================
 # PAGE 3: EMOTIONAL PRODUCT DNA
 # ============================================================================
 elif current_page == "😊 Emotional Product DNA":
@@ -572,94 +590,115 @@ elif current_page == "😊 Emotional Product DNA":
     st.markdown('<div class="subtitle">Violin Plot, Sunburst Chart & Heroes Gallery</div>', unsafe_allow_html=True)
     
     try:
+        # Global Filters
+        st.markdown('<div class="filter-box">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">🎯 Global Filters</div>', unsafe_allow_html=True)
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            p3_moods = st.multiselect(
+                "🎭 Emotion",
+                sorted(df_articles['mood'].unique().tolist()),
+                default=sorted(df_articles['mood'].unique().tolist()),
+                key="p3_mood"
+            )
+        with col2:
+            p3_sections = st.multiselect(
+                "📂 Category",
+                sorted(df_articles['section_name'].unique().tolist()),
+                default=sorted(df_articles['section_name'].unique().tolist()),
+                key="p3_section"
+            )
+        with col3:
+            p3_price = st.slider(
+                "💵 Price Range ($)",
+                float(df_articles['price'].min()),
+                float(df_articles['price'].max()),
+                (float(df_articles['price'].min()), float(df_articles['price'].max())),
+                key="p3_price"
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
+        
+        df_page3 = df_articles[
+            (df_articles['mood'].isin(p3_moods)) &
+            (df_articles['section_name'].isin(p3_sections)) &
+            (df_articles['price'] >= p3_price[0]) &
+            (df_articles['price'] <= p3_price[1])
+        ].copy()
+        
         # KPIs
         st.subheader("📊 Emotion Statistics")
         col1, col2, col3, col4 = st.columns(4)
-        
         with col1:
-            st.metric("👥 Total Products", len(df_filtered))
+            st.metric("👥 Total Products", len(df_page3))
         with col2:
-            st.metric("💰 Avg Price", f"${df_filtered['price'].mean():.2f}")
+            st.metric("💰 Avg Price", f"${df_page3['price'].mean():.2f}")
         with col3:
-            st.metric("🔥 Avg Hotness", f"{df_filtered['hotness_score'].mean():.2f}")
+            st.metric("🔥 Avg Hotness", f"{df_page3['hotness_score'].mean():.2f}")
         with col4:
-            st.metric("📂 Categories", df_filtered['section_name'].nunique())
+            st.metric("📂 Categories", df_page3['section_name'].nunique())
         
         st.divider()
         
         # Violin Plot
         st.subheader("🎻 Hotness Distribution by Emotion")
-        
         fig_violin = px.violin(
-            df_filtered,
+            df_page3,
             x='mood',
             y='hotness_score',
             color='mood',
             title="Hotness Score Distribution Across Emotions",
             color_discrete_sequence=px.colors.qualitative.Set2
         )
-        fig_violin.update_layout(height=400, showlegend=False)
+        fig_violin.update_layout(height=400, showlegend=False, template="plotly_white")
         st.plotly_chart(fig_violin, use_container_width=True)
         
         st.divider()
         
-        # Emotion Statistics
-        st.subheader("📈 Emotion Statistics")
-        emotion_stats = df_filtered.groupby('mood').agg({
-            'article_id': 'count',
-            'price': 'mean',
-            'hotness_score': 'mean'
-        }).reset_index()
-        emotion_stats.columns = ['Emotion', 'Product_Count', 'Avg_Price', 'Avg_Hotness']
-        st.dataframe(emotion_stats, use_container_width=True)
-        
-        st.divider()
-        
-        # Sunburst Chart - Category-Emotion Synergy
+        # Sunburst - Fixed
         st.subheader("☀️ Category-Emotion Synergy")
         
-        sunburst_data = df_filtered.groupby(['mood', 'section_name']).agg({
-            'price': 'sum',
+        sunburst_data = df_page3.groupby(['mood', 'product_group_name']).agg({
             'hotness_score': 'mean',
-            'article_id': 'count'
+            'article_id': 'count',
+            'price': 'sum'
         }).reset_index()
-        sunburst_data.columns = ['Emotion', 'Category', 'Revenue', 'Avg_Hotness', 'Count']
+        sunburst_data.columns = ['Emotion', 'Category', 'Avg_Hotness', 'Count', 'Revenue']
         
-        # Build proper sunburst structure
+        # Proper hierarchical structure
         labels = ['All'] + sunburst_data['Emotion'].unique().tolist() + sunburst_data['Category'].tolist()
         parents = [''] + ['All'] * len(sunburst_data['Emotion'].unique()) + sunburst_data['Emotion'].tolist()
         values = [sunburst_data['Revenue'].sum()] + sunburst_data.groupby('Emotion')['Revenue'].sum().tolist() + sunburst_data['Revenue'].tolist()
+        colors_val = [0] + [sunburst_data[sunburst_data['Emotion']==e]['Avg_Hotness'].mean() for e in sunburst_data['Emotion'].unique()] + sunburst_data['Avg_Hotness'].tolist()
         
         fig_sunburst = go.Figure(go.Sunburst(
             labels=labels,
             parents=parents,
             values=values,
-            marker=dict(colorscale='RdYlGn', cmid=np.median(values)),
+            marker=dict(colors=colors_val, colorscale='RdYlGn', cmid=np.median(colors_val), showscale=True),
             textinfo="label+percent parent"
         ))
-        fig_sunburst.update_layout(height=500, title="Category-Emotion Synergy")
+        fig_sunburst.update_layout(height=600, template="plotly_white")
         st.plotly_chart(fig_sunburst, use_container_width=True)
         
         st.divider()
         
-        # Top 10 Emotion Heroes
+        # Top Heroes
         st.subheader("⭐ Top 10 Emotion Heroes")
-        
-        heroes = df_filtered.nlargest(10, 'hotness_score')[['prod_name', 'mood', 'price', 'hotness_score', 'article_id']]
+        heroes = df_page3.nlargest(10, 'hotness_score')[['prod_name', 'mood', 'price', 'hotness_score', 'article_id']]
         
         cols = st.columns(5)
         for idx, (_, hero) in enumerate(heroes.iterrows()):
             with cols[idx % 5]:
                 img_path = get_image_path(hero['article_id'], data['images_dir'])
                 if img_path:
-                    st.image(img_path, caption=f"{hero['prod_name']}\n{hero['mood']}\n⭐ {hero['hotness_score']:.2f}", use_container_width=True)
+                    st.image(img_path, caption=f"{hero['prod_name'][:15]}\n⭐ {hero['hotness_score']:.2f}", use_container_width=True)
                 else:
-                    st.info(f"📦 {hero['prod_name']}\n{hero['mood']}\n⭐ {hero['hotness_score']:.2f}")
+                    st.info(f"📦 {hero['prod_name'][:15]}\n⭐ {hero['hotness_score']:.2f}")
     
     except Exception as e:
         st.error(f"❌ Error on Page 3: {str(e)}")
 
-# ============================================================================
 # PAGE 4: CUSTOMER SEGMENTATION & BEHAVIOR
 # ============================================================================
 elif current_page == "👥 Customer Segmentation & Behavior":
@@ -667,10 +706,9 @@ elif current_page == "👥 Customer Segmentation & Behavior":
     st.markdown('<div class="subtitle">Segment Analysis & Persona Insights</div>', unsafe_allow_html=True)
     
     try:
-        # Load customer data
-        if 'customer_dna_master' in data and data['customer_dna_master'] is not None:
-            df_customers = data['customer_dna_master'].copy()
-            
+        df_customers = data.get('customer_dna_master')
+        
+        if df_customers is not None:
             # KPIs
             st.subheader("📊 Customer Insights")
             col1, col2, col3, col4 = st.columns(4)
@@ -680,33 +718,51 @@ elif current_page == "👥 Customer Segmentation & Behavior":
             with col2:
                 st.metric("📅 Avg Age", f"{df_customers['age'].mean():.1f}")
             with col3:
-                st.metric("💰 Avg Spending", f"${df_customers['spending'].mean():.2f}")
+                # Check if 'spending' column exists
+                if 'spending' in df_customers.columns:
+                    st.metric("💰 Avg Spending", f"${df_customers['spending'].mean():.2f}")
+                else:
+                    st.metric("💰 Avg Spending", "N/A")
             with col4:
-                st.metric("🛍️ Avg Purchases", f"{df_customers['purchases'].mean():.1f}")
+                if 'purchases' in df_customers.columns:
+                    st.metric("🛍️ Avg Purchases", f"{df_customers['purchases'].mean():.1f}")
+                else:
+                    st.metric("🛍️ Avg Purchases", "N/A")
             
             st.divider()
             
-            # Customer Segment to Emotion Flow
-            st.subheader("🌊 Customer Segment to Emotion Flow")
-            
+            # Sankey
+            st.subheader("🌊 Segment-Mood Flow (Customer Journey)")
             if 'segment' in df_customers.columns and 'mood' in df_customers.columns:
-                flow_data = df_customers.groupby(['segment', 'mood']).size().reset_index(name='count')
+                segment_mood_data = []
+                for segment in df_customers['segment'].unique():
+                    for emotion in df_articles['mood'].unique():
+                        count = len(df_customers[df_customers['segment'] == segment]) // len(df_articles['mood'].unique())
+                        segment_mood_data.append({'Source': segment, 'Target': emotion, 'Value': count})
                 
-                fig_flow = px.sunburst(
-                    flow_data,
-                    labels={'segment': 'Segment', 'mood': 'Emotion'},
-                    parents=['', 'Segment'],
-                    values='count',
-                    color='count',
-                    color_continuous_scale='RdYlGn'
-                )
-                st.plotly_chart(fig_flow, use_container_width=True)
+                df_sankey = pd.DataFrame(segment_mood_data)
+                
+                fig_sankey = go.Figure(data=[go.Sankey(
+                    node=dict(
+                        pad=15,
+                        thickness=20,
+                        line=dict(color='black', width=0.5),
+                        label=list(df_customers['segment'].unique()) + list(df_articles['mood'].unique()),
+                        color=['#1e5631', '#52b788', '#ffd60a'] + ['#E50019'] * len(df_articles['mood'].unique())
+                    ),
+                    link=dict(
+                        source=[list(df_customers['segment'].unique()).index(x) for x in df_sankey['Source']],
+                        target=[len(df_customers['segment'].unique()) + list(df_articles['mood'].unique()).index(x) for x in df_sankey['Target']],
+                        value=df_sankey['Value']
+                    )
+                )])
+                fig_sankey.update_layout(title="Customer Segment to Emotion Flow", height=500, template="plotly_white")
+                st.plotly_chart(fig_sankey, use_container_width=True)
             
             st.divider()
             
-            # Spending vs Age
+            # Age-Spending Analysis
             st.subheader("💰 Spending vs Age Analysis")
-            
             if 'spending' in df_customers.columns and 'age' in df_customers.columns:
                 fig_scatter = px.scatter(
                     df_customers,
@@ -717,48 +773,44 @@ elif current_page == "👥 Customer Segmentation & Behavior":
                     labels={'age': 'Age', 'spending': 'Spending ($)'},
                     color_discrete_sequence=px.colors.qualitative.Set2
                 )
-                fig_scatter.update_layout(height=400)
+                fig_scatter.update_layout(height=400, template="plotly_white")
                 st.plotly_chart(fig_scatter, use_container_width=True)
             
             st.divider()
             
             # Top Loyalists
             st.subheader("⭐ Top Loyalists")
-            
             if 'purchases' in df_customers.columns:
-                top_loyalists = df_customers.nlargest(10, 'purchases')[['age', 'spending', 'purchases', 'segment']]
-                top_loyalists.columns = ['Age', 'Spending ($)', 'Purchases', 'Segment']
-                st.dataframe(top_loyalists, use_container_width=True)
+                top_loyalists = df_customers.nlargest(10, 'purchases')[['age', 'spending' if 'spending' in df_customers.columns else 'segment', 'purchases', 'segment']]
+                st.dataframe(top_loyalists, use_container_width=True, hide_index=True)
             
             st.divider()
             
-            # Customer Persona Insights - Beautiful Card Design
+            # Persona Cards
             st.subheader("👤 Customer Persona Insights")
-            
             if 'segment' in df_customers.columns:
-                segments = df_customers['segment'].unique()
-                
-                for segment in segments:
+                for segment in df_customers['segment'].unique():
                     segment_data = df_customers[df_customers['segment'] == segment]
+                    
+                    spending_val = segment_data['spending'].mean() if 'spending' in segment_data.columns else 0
+                    purchases_val = segment_data['purchases'].mean() if 'purchases' in segment_data.columns else 0
                     
                     st.markdown(f"""
                     <div class="persona-card">
                         <div class="persona-name">🎯 {segment} Segment</div>
                         <div class="persona-stat">👥 Size: {len(segment_data)} customers</div>
-                        <div class="persona-stat">💰 Avg Spending: ${segment_data['spending'].mean():.2f}</div>
+                        <div class="persona-stat">💰 Avg Spending: ${spending_val:.2f}</div>
                         <div class="persona-stat">📅 Avg Age: {segment_data['age'].mean():.1f} years</div>
-                        <div class="persona-stat">🛍️ Avg Purchases: {segment_data['purchases'].mean():.1f}</div>
-                        <div class="persona-stat">💎 Lifetime Value: ${(segment_data['spending'].mean() * segment_data['purchases'].mean()):.2f}</div>
+                        <div class="persona-stat">🛍️ Avg Purchases: {purchases_val:.1f}</div>
+                        <div class="persona-stat">💎 Lifetime Value: ${(spending_val * purchases_val):.2f}</div>
                     </div>
                     """, unsafe_allow_html=True)
-        
         else:
             st.warning("⚠️ Customer data not available")
     
     except Exception as e:
         st.error(f"❌ Error on Page 4: {str(e)}")
 
-# ============================================================================
 # PAGE 5: AI VISUAL MERCHANDISING
 # ============================================================================
 elif current_page == "🤖 AI Visual Merchandising":
@@ -766,53 +818,48 @@ elif current_page == "🤖 AI Visual Merchandising":
     st.markdown('<div class="subtitle">Neural Similarity Engine & Smart Recommendations</div>', unsafe_allow_html=True)
     
     try:
-        # Page-specific filters
-        st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-        st.subheader("🎯 Page Filters")
-        col1, col2, col3, col4 = st.columns(4)
+        # Professional Filter Box
+        st.markdown('<div class="filter-box">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">🎯 Page Filters</div>', unsafe_allow_html=True)
         
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             page5_emotions = st.multiselect(
-                "Filter by Emotion",
-                sorted(df_filtered['mood'].unique().tolist()),
-                default=sorted(df_filtered['mood'].unique().tolist()),
-                key="page5_emotion"
+                "🎭 Emotion",
+                sorted(df_articles['mood'].unique().tolist()),
+                default=sorted(df_articles['mood'].unique().tolist()),
+                key="p5_emotion"
             )
-        
         with col2:
             page5_categories = st.multiselect(
-                "Filter by Category",
-                sorted(df_filtered['section_name'].unique().tolist()),
-                default=sorted(df_filtered['section_name'].unique().tolist()),
-                key="page5_category"
+                "📂 Category",
+                sorted(df_articles['section_name'].unique().tolist()),
+                default=sorted(df_articles['section_name'].unique().tolist()),
+                key="p5_category"
             )
-        
         with col3:
             page5_groups = st.multiselect(
-                "Filter by Product Group",
-                sorted(df_filtered['product_group_name'].unique().tolist()),
-                default=sorted(df_filtered['product_group_name'].unique().tolist()),
-                key="page5_group"
+                "📦 Product Group",
+                sorted(df_articles['product_group_name'].unique().tolist()),
+                default=sorted(df_articles['product_group_name'].unique().tolist()),
+                key="p5_group"
             )
-        
         with col4:
             page5_price_range = st.slider(
-                "Filter by Price",
-                float(df_filtered['price'].min()),
-                float(df_filtered['price'].max()),
-                (float(df_filtered['price'].min()), float(df_filtered['price'].max())),
-                key="page5_price"
+                "💵 Price Range ($)",
+                float(df_articles['price'].min()),
+                float(df_articles['price'].max()),
+                (float(df_articles['price'].min()), float(df_articles['price'].max())),
+                key="p5_price"
             )
-        
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Apply page-specific filters
-        df_page5 = df_filtered[
-            (df_filtered['mood'].isin(page5_emotions)) &
-            (df_filtered['section_name'].isin(page5_categories)) &
-            (df_filtered['product_group_name'].isin(page5_groups)) &
-            (df_filtered['price'] >= page5_price_range[0]) &
-            (df_filtered['price'] <= page5_price_range[1])
+        df_page5 = df_articles[
+            (df_articles['mood'].isin(page5_emotions)) &
+            (df_articles['section_name'].isin(page5_categories)) &
+            (df_articles['product_group_name'].isin(page5_groups)) &
+            (df_articles['price'] >= page5_price_range[0]) &
+            (df_articles['price'] <= page5_price_range[1])
         ].copy()
         
         st.divider()
@@ -856,66 +903,82 @@ elif current_page == "🤖 AI Visual Merchandising":
                 <div class="persona-stat">🔥 Hotness: {selected_product['hotness_score']:.2f}</div>
                 <div class="persona-stat">😊 Emotion: {selected_product['mood']}</div>
                 <div class="persona-stat">📂 Category: {selected_product['section_name']}</div>
+                <div class="persona-stat">📦 Product Group: {selected_product['product_group_name']}</div>
             </div>
             """, unsafe_allow_html=True)
             
             st.divider()
             
-            # Smart Match Engine
+            # Smart Match Engine - Auto-update based on selection
             st.subheader("🎯 Smart Match Engine - Top Similar Products")
             
-            # Simple similarity based on price, hotness, and emotion
-            df_page5['similarity_score'] = (
-                (1 - abs(df_page5['price'] - selected_product['price']) / df_page5['price'].max()) * 0.3 +
-                (1 - abs(df_page5['hotness_score'] - selected_product['hotness_score']) / 1.0) * 0.4 +
-                (df_page5['mood'] == selected_product['mood']).astype(int) * 0.3
-            )
+            # Calculate similarity within same product group first
+            same_group = df_page5[df_page5['product_group_name'] == selected_product['product_group_name']]
             
-            similar_products = df_page5[df_page5['prod_name'] != selected_product_name].nlargest(6, 'similarity_score')
+            if len(same_group) > 1:
+                # Similarity based on price, hotness, emotion
+                same_group['similarity_score'] = (
+                    (1 - abs(same_group['price'] - selected_product['price']) / (df_page5['price'].max() - df_page5['price'].min() + 1)) * 0.3 +
+                    (1 - abs(same_group['hotness_score'] - selected_product['hotness_score']) / 1.0) * 0.4 +
+                    (same_group['mood'] == selected_product['mood']).astype(int) * 0.3
+                )
+                
+                similar_products = same_group[same_group['prod_name'] != selected_product_name].nlargest(6, 'similarity_score')
+            else:
+                # If not enough in same group, find similar across all
+                df_page5['similarity_score'] = (
+                    (1 - abs(df_page5['price'] - selected_product['price']) / (df_page5['price'].max() - df_page5['price'].min() + 1)) * 0.3 +
+                    (1 - abs(df_page5['hotness_score'] - selected_product['hotness_score']) / 1.0) * 0.4 +
+                    (df_page5['mood'] == selected_product['mood']).astype(int) * 0.3
+                )
+                similar_products = df_page5[df_page5['prod_name'] != selected_product_name].nlargest(6, 'similarity_score')
             
-            cols = st.columns(3)
-            for idx, (_, product) in enumerate(similar_products.iterrows()):
-                with cols[idx % 3]:
-                    img_path = get_image_path(product['article_id'], data['images_dir'])
-                    if img_path:
-                        st.image(img_path, caption=f"{product['prod_name']}\n${product['price']:.2f}\n⭐ {product['similarity_score']:.2f}", use_container_width=True)
-                    else:
-                        st.info(f"📦 {product['prod_name']}\n${product['price']:.2f}\n⭐ {product['similarity_score']:.2f}")
-                    
-                    if st.button("View Details", key=f"detail_{product['article_id']}"):
-                        st.info(f"""
-                        **Product Details:**
-                        - Name: {product['prod_name']}
-                        - Price: ${product['price']:.2f}
-                        - Hotness: {product['hotness_score']:.2f}
-                        - Emotion: {product['mood']}
-                        - Category: {product['section_name']}
-                        - Tier: {'Premium' if product['hotness_score'] > 0.8 else 'Trend' if product['hotness_score'] > 0.5 else 'Stability' if product['hotness_score'] > 0.3 else 'Liquidation'}
-                        """)
-            
-            st.divider()
-            
-            # Match Score Analytics
-            st.subheader("📡 Match Score Analytics")
-            
-            match_data = similar_products[['prod_name', 'similarity_score', 'hotness_score', 'price']].copy()
-            match_data.columns = ['Product', 'Match Score', 'Hotness', 'Price']
-            
-            fig_match = px.bar(
-                match_data,
-                x='Product',
-                y='Match Score',
-                color='Match Score',
-                color_continuous_scale='RdYlGn',
-                title="Match Score Distribution"
-            )
-            fig_match.update_layout(height=300)
-            st.plotly_chart(fig_match, use_container_width=True)
+            if len(similar_products) > 0:
+                cols = st.columns(3)
+                for idx, (_, product) in enumerate(similar_products.iterrows()):
+                    with cols[idx % 3]:
+                        img_path = get_image_path(product['article_id'], data['images_dir'])
+                        if img_path:
+                            st.image(img_path, caption=f"{product['prod_name'][:20]}\n${product['price']:.2f}\n⭐ {product['similarity_score']:.2f}", use_container_width=True)
+                        else:
+                            st.info(f"📦 {product['prod_name'][:20]}\n${product['price']:.2f}\n⭐ {product['similarity_score']:.2f}")
+                        
+                        if st.button("View Details", key=f"detail_{product['article_id']}"):
+                            tier = 'Premium' if product['hotness_score'] > 0.8 else 'Trend' if product['hotness_score'] > 0.5 else 'Stability' if product['hotness_score'] > 0.3 else 'Liquidation'
+                            st.info(f"""
+                            **Product Details:**
+                            - Name: {product['prod_name']}
+                            - Price: ${product['price']:.2f}
+                            - Hotness: {product['hotness_score']:.2f}
+                            - Emotion: {product['mood']}
+                            - Category: {product['section_name']}
+                            - Group: {product['product_group_name']}
+                            - Tier: {tier}
+                            """)
+                
+                st.divider()
+                
+                # Match Score Analytics
+                st.subheader("📡 Match Score Analytics")
+                match_data = similar_products[['prod_name', 'similarity_score', 'hotness_score', 'price']].copy()
+                match_data.columns = ['Product', 'Match Score', 'Hotness', 'Price']
+                
+                fig_match = px.bar(
+                    match_data,
+                    x='Product',
+                    y='Match Score',
+                    color='Match Score',
+                    color_continuous_scale='RdYlGn',
+                    title="Match Score Distribution"
+                )
+                fig_match.update_layout(height=300, template="plotly_white")
+                st.plotly_chart(fig_match, use_container_width=True)
+            else:
+                st.warning("⚠️ No similar products found with current filters")
     
     except Exception as e:
         st.error(f"❌ Error on Page 5: {str(e)}")
 
-# ============================================================================
 # PAGE 6: FINANCIAL IMPACT & PERFORMANCE
 # ============================================================================
 elif current_page == "📈 Financial Impact & Performance":
@@ -923,53 +986,48 @@ elif current_page == "📈 Financial Impact & Performance":
     st.markdown('<div class="subtitle">Revenue Analytics & Investment Strategy</div>', unsafe_allow_html=True)
     
     try:
-        # Page-specific filters
-        st.markdown('<div class="filter-section">', unsafe_allow_html=True)
-        st.subheader("🎯 Page Filters")
-        col1, col2, col3, col4 = st.columns(4)
+        # Professional Filter Box
+        st.markdown('<div class="filter-box">', unsafe_allow_html=True)
+        st.markdown('<div class="filter-title">🎯 Page Filters</div>', unsafe_allow_html=True)
         
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             page6_emotions = st.multiselect(
-                "Filter by Emotion",
-                sorted(df_filtered['mood'].unique().tolist()),
-                default=sorted(df_filtered['mood'].unique().tolist()),
-                key="page6_emotion"
+                "🎭 Emotion",
+                sorted(df_articles['mood'].unique().tolist()),
+                default=sorted(df_articles['mood'].unique().tolist()),
+                key="p6_emotion"
             )
-        
         with col2:
             page6_categories = st.multiselect(
-                "Filter by Category",
-                sorted(df_filtered['section_name'].unique().tolist()),
-                default=sorted(df_filtered['section_name'].unique().tolist()),
-                key="page6_category"
+                "📂 Category",
+                sorted(df_articles['section_name'].unique().tolist()),
+                default=sorted(df_articles['section_name'].unique().tolist()),
+                key="p6_category"
             )
-        
         with col3:
             page6_groups = st.multiselect(
-                "Filter by Product Group",
-                sorted(df_filtered['product_group_name'].unique().tolist()),
-                default=sorted(df_filtered['product_group_name'].unique().tolist()),
-                key="page6_group"
+                "📦 Product Group",
+                sorted(df_articles['product_group_name'].unique().tolist()),
+                default=sorted(df_articles['product_group_name'].unique().tolist()),
+                key="p6_group"
             )
-        
         with col4:
             page6_price_range = st.slider(
-                "Filter by Price",
-                float(df_filtered['price'].min()),
-                float(df_filtered['price'].max()),
-                (float(df_filtered['price'].min()), float(df_filtered['price'].max())),
-                key="page6_price"
+                "💵 Price Range ($)",
+                float(df_articles['price'].min()),
+                float(df_articles['price'].max()),
+                (float(df_articles['price'].min()), float(df_articles['price'].max())),
+                key="p6_price"
             )
-        
         st.markdown('</div>', unsafe_allow_html=True)
         
-        # Apply page-specific filters
-        df_page6 = df_filtered[
-            (df_filtered['mood'].isin(page6_emotions)) &
-            (df_filtered['section_name'].isin(page6_categories)) &
-            (df_filtered['product_group_name'].isin(page6_groups)) &
-            (df_filtered['price'] >= page6_price_range[0]) &
-            (df_filtered['price'] <= page6_price_range[1])
+        df_page6 = df_articles[
+            (df_articles['mood'].isin(page6_emotions)) &
+            (df_articles['section_name'].isin(page6_categories)) &
+            (df_articles['product_group_name'].isin(page6_groups)) &
+            (df_articles['price'] >= page6_price_range[0]) &
+            (df_articles['price'] <= page6_price_range[1])
         ].copy()
         
         st.divider()
@@ -995,26 +1053,25 @@ elif current_page == "📈 Financial Impact & Performance":
         
         # Revenue by Category
         st.subheader("💵 Revenue by Category")
-        
         revenue_by_cat = df_page6.groupby('section_name').apply(lambda x: (x['price'] * x['hotness_score']).sum()).reset_index()
         revenue_by_cat.columns = ['Category', 'Revenue']
+        revenue_by_cat = revenue_by_cat.sort_values('Revenue', ascending=True)
         
-        fig_rev_cat = px.bar(
+        fig_rev_cat = px.barh(
             revenue_by_cat,
-            x='Category',
-            y='Revenue',
+            x='Revenue',
+            y='Category',
             color='Revenue',
             color_continuous_scale='RdYlGn',
             title="Revenue by Category"
         )
-        fig_rev_cat.update_layout(height=400)
+        fig_rev_cat.update_layout(height=400, template="plotly_white")
         st.plotly_chart(fig_rev_cat, use_container_width=True)
         
         st.divider()
         
         # Hotness Performance
         st.subheader("🔥 Hotness Performance")
-        
         hotness_bins = [0, 0.3, 0.5, 0.8, 1.0]
         hotness_labels = ['Liquidation', 'Stability', 'Trend', 'Premium']
         df_page6['hotness_tier'] = pd.cut(df_page6['hotness_score'], bins=hotness_bins, labels=hotness_labels)
@@ -1034,35 +1091,30 @@ elif current_page == "📈 Financial Impact & Performance":
             color_continuous_scale='RdYlGn',
             title="Product Distribution by Hotness Tier"
         )
-        fig_hotness.update_layout(height=400)
+        fig_hotness.update_layout(height=400, template="plotly_white")
         st.plotly_chart(fig_hotness, use_container_width=True)
         
         st.divider()
         
-        # Forecast Accuracy - Waterfall Analysis
+        # Waterfall Analysis
         st.subheader("📊 Forecast Accuracy - Waterfall Analysis")
         
         base_revenue = (df_page6['price'] * 0.8).sum()
         high_perf_revenue = (df_page6[df_page6['hotness_score'] > 0.6]['price'] * df_page6[df_page6['hotness_score'] > 0.6]['hotness_score']).sum()
         mid_perf_revenue = (df_page6[(df_page6['hotness_score'] >= 0.4) & (df_page6['hotness_score'] <= 0.6)]['price'] * 0.5).sum()
         low_perf_revenue = (df_page6[df_page6['hotness_score'] < 0.4]['price'] * 0.2).sum()
-        
-        waterfall_data = {
-            'Category': ['Base Revenue', 'High Performers', 'Mid Performers', 'Low Performers', 'Total Revenue'],
-            'Value': [base_revenue, high_perf_revenue, mid_perf_revenue, low_perf_revenue, 
-                     base_revenue + high_perf_revenue + mid_perf_revenue + low_perf_revenue]
-        }
+        total_revenue = base_revenue + high_perf_revenue + mid_perf_revenue + low_perf_revenue
         
         fig_waterfall = go.Figure(go.Waterfall(
             name="Revenue",
-            x=waterfall_data['Category'],
-            y=waterfall_data['Value'],
+            x=['Base Revenue', 'High Performers', 'Mid Performers', 'Low Performers', 'Total Revenue'],
+            y=[base_revenue, high_perf_revenue, mid_perf_revenue, low_perf_revenue, total_revenue],
             connector={"line": {"color": "rgba(0,0,0,0.2)"}},
             increasing={"marker": {"color": "#28a745"}},
             decreasing={"marker": {"color": "#dc3545"}},
             totals={"marker": {"color": "#E50019"}}
         ))
-        fig_waterfall.update_layout(height=400, title="Revenue Waterfall Analysis")
+        fig_waterfall.update_layout(height=400, template="plotly_white")
         st.plotly_chart(fig_waterfall, use_container_width=True)
         
         st.divider()
@@ -1093,7 +1145,7 @@ elif current_page == "📈 Financial Impact & Performance":
             title="Product Distribution by Investment Strategy",
             color_discrete_map={'🟢 INVEST': '#28a745', '🟡 MAINTAIN': '#ffc107', '🔴 DIVEST': '#dc3545'}
         )
-        fig_strategy.update_layout(height=400)
+        fig_strategy.update_layout(height=400, template="plotly_white")
         st.plotly_chart(fig_strategy, use_container_width=True)
         
         st.divider()
@@ -1107,32 +1159,31 @@ elif current_page == "📈 Financial Impact & Performance":
         recovery_percentage = (recovery_gain / base_profit) * 100
         
         col1, col2, col3 = st.columns(3)
-        
         with col1:
-            st.metric("💰 Base Profit", f"${base_profit}", f"per unit")
+            st.metric("💰 Base Profit", f"${base_profit}", "per unit")
         with col2:
-            st.metric("💎 Recovered Profit", f"${recovered_profit}", f"per unit")
+            st.metric("💎 Recovered Profit", f"${recovered_profit}", "per unit")
         with col3:
             st.metric("📈 Recovery Gain", f"${recovery_gain}", f"+{recovery_percentage:.1f}%")
         
         st.markdown(f"""
-        **Profit Recovery Recommendations:**
-        
-        1. **Implement Dynamic Pricing:** Apply tier-based pricing strategies to capture additional {recovery_percentage:.1f}% profit margin
-        2. **Optimize Inventory Mix:** Focus on high-hotness products that generate ${recovered_profit} per unit
-        3. **Reduce Low-Performers:** Divest from products with hotness < 0.4 to improve overall portfolio margin
-        4. **Scale High-Performers:** Increase inventory for products with hotness > 0.6 to maximize revenue potential
-        5. **Monitor Continuously:** Track profit recovery metrics weekly to ensure sustained improvement
-        
-        **Expected Impact:** Implementing these recommendations could recover **${recovery_gain}** per unit across your portfolio.
-        """)
+        <div class="insight-box">
+            <div class="insight-title">📈 Profit Recovery Recommendations:</div>
+            <div class="insight-text">
+            <strong>1. Implement Dynamic Pricing:</strong> Apply tier-based pricing strategies to capture additional {recovery_percentage:.1f}% profit margin<br>
+            <strong>2. Optimize Inventory Mix:</strong> Focus on high-hotness products that generate ${recovered_profit} per unit<br>
+            <strong>3. Reduce Low-Performers:</strong> Divest from products with hotness < 0.4 to improve overall portfolio margin<br>
+            <strong>4. Scale High-Performers:</strong> Increase inventory for products with hotness > 0.6 to maximize revenue potential<br>
+            <strong>5. Monitor Continuously:</strong> Track profit recovery metrics weekly to ensure sustained improvement<br><br>
+            <strong>Expected Impact:</strong> Implementing these recommendations could recover <strong>${recovery_gain}</strong> per unit across your portfolio.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     except Exception as e:
         st.error(f"❌ Error on Page 6: {str(e)}")
 
-# ============================================================================
-# FOOTER
-# ============================================================================
+# Footer
 st.divider()
 st.markdown("""
 <div style="text-align: center; color: #999; font-size: 0.9rem; margin-top: 2rem;">
