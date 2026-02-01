@@ -1,3 +1,4 @@
+import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -5,35 +6,44 @@ import plotly.graph_objects as go
 import gdown
 import os
 import zipfile
-from typing import Optional, Dict, Tuple, List
+from typing import Optional, Dict
 import warnings
-import urllib.request
 
 warnings.filterwarnings('ignore')
 
-# ============================================================================
-# PAGE CONFIGURATION
-# ============================================================================
 st.set_page_config(
     page_title="H & M Fashion BI - Strategic Command Center",
     page_icon="👗",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
-# Professional CSS
 st.markdown("""
     <style>
-    .main { padding-top: 1rem; }
-    .header-title { font-size: 3.5rem; font-weight: 900; background: linear-gradient(135deg, #E50019 0%, #FF6B6B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.3rem; letter-spacing: -1px; }
-    .subtitle { font-size: 1.2rem; color: #666; margin-bottom: 2rem; font-weight: 500; }
-    .alert-warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; border-radius: 5px; margin: 10px 0; }
-    .alert-success { background: #d4edda; border-left: 4px solid #28a745; padding: 15px; border-radius: 5px; margin: 10px 0; }
+    * { margin: 0; padding: 0; }
+    .main { padding: 2rem 1rem; }
+    .header-title { font-size: 3.5rem; font-weight: 900; background: linear-gradient(135deg, #E50019 0%, #FF6B6B 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 0.5rem; }
+    .subtitle { font-size: 1.1rem; color: #555; margin-bottom: 2rem; font-weight: 500; }
+    .nav-container { display: flex; gap: 8px; margin-bottom: 2rem; flex-wrap: wrap; }
+    .nav-button { padding: 12px 18px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: all 0.3s ease; background: #f0f0f0; color: #333; }
+    .nav-button:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(229, 0, 25, 0.2); }
+    .tier-card { background: linear-gradient(135deg, #ffffff 0%, #f9f9f9 100%); padding: 25px; border-radius: 12px; border: 2px solid #e8e8e8; margin: 10px 0; cursor: pointer; transition: all 0.3s; text-align: center; }
+    .tier-card:hover { border-color: #E50019; box-shadow: 0 8px 20px rgba(229, 0, 25, 0.15); transform: translateY(-4px); }
+    .tier-card-active { border-color: #E50019; background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%); }
+    .tier-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .tier-count { font-size: 1.8rem; font-weight: 700; color: #E50019; }
+    .tier-label { font-size: 0.9rem; color: #666; margin-top: 5px; }
+    .insight-box { background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%); border-left: 4px solid #28a745; padding: 15px; border-radius: 8px; margin: 15px 0; }
+    .insight-title { font-weight: 700; color: #1b5e20; margin-bottom: 8px; }
+    .insight-text { color: #2e7d32; font-size: 0.95rem; line-height: 1.6; }
+    .persona-card { background: linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%); padding: 20px; border-radius: 10px; border-left: 4px solid #E50019; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .persona-name { font-size: 1.3rem; font-weight: 700; color: #E50019; margin-bottom: 10px; }
+    .persona-stat { font-size: 0.95rem; color: #666; margin: 6px 0; line-height: 1.5; }
     </style>
 """, unsafe_allow_html=True)
 
 # ============================================================================
-# DATA LOADING FUNCTIONS
+# DATA LOADING
 # ============================================================================
 
 def ensure_data_dir():
@@ -47,10 +57,7 @@ def download_from_drive(file_id: str, file_path: str) -> bool:
         try:
             gdown.download(url, file_path, quiet=False)
         except:
-            try:
-                urllib.request.urlretrieve(url, file_path)
-            except:
-                pass
+            pass
         return os.path.exists(file_path)
     except:
         return False
@@ -92,7 +99,6 @@ def load_data_from_drive() -> Dict:
                 data[key] = df
         progress_bar.progress((idx + 1) / (len(csv_files) + 1))
     
-    # Load images
     images_zip_path = 'data/hm_web_images.zip'
     images_dir = 'data/hm_web_images'
     
@@ -146,93 +152,103 @@ except Exception as e:
     st.stop()
 
 # ============================================================================
-# SIDEBAR FILTERS & NAVIGATION
+# NAVIGATION
 # ============================================================================
-st.sidebar.markdown("## 🎯 H & M Strategic BI")
-st.sidebar.markdown("---")
+pages = [
+    "📊 Strategic Command Center",
+    "🔍 Asset Optimization & Pricing",
+    "😊 Emotional Product DNA",
+    "👥 Customer Segmentation & Behavior",
+    "🤖 AI Visual Merchandising",
+    "📈 Financial Impact & Performance"
+]
 
-df_articles = data['article_master_web'].copy()
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = 0
 
-# Global Filters
-selected_moods = st.sidebar.multiselect(
-    "Filter by Emotion",
-    sorted(df_articles['mood'].unique().tolist()),
-    default=sorted(df_articles['mood'].unique().tolist())
-)
+col_nav = st.columns(len(pages))
+for idx, page_name in enumerate(pages):
+    with col_nav[idx]:
+        if st.button(page_name, use_container_width=True, key=f"nav_{idx}"):
+            st.session_state.current_page = idx
 
-selected_sections = st.sidebar.multiselect(
-    "Filter by Section",
-    sorted(df_articles['section_name'].unique().tolist()),
-    default=sorted(df_articles['section_name'].unique().tolist())
-)
-
-price_range = st.sidebar.slider(
-    "Price Range ($)",
-    float(df_articles['price'].min()),
-    float(df_articles['price'].max()),
-    (float(df_articles['price'].min()), float(df_articles['price'].max()))
-)
-
-# Apply filters
-df_filtered = df_articles[
-    (df_articles['mood'].isin(selected_moods)) &
-    (df_articles['section_name'].isin(selected_sections)) &
-    (df_articles['price'] >= price_range[0]) &
-    (df_articles['price'] <= price_range[1])
-].copy()
-
-st.sidebar.markdown("---")
-
-# Page Navigation
-page = st.sidebar.radio(
-    "Select Page",
-    ["📊 Strategic Command Center", 
-     "🔍 Asset Optimization & Pricing", 
-     "😊 Emotional Product DNA",
-     "👥 Customer Segmentation & Behavior",
-     "🤖 AI Visual Merchandising",
-     "📈 Financial Impact & Performance"]
-)
+current_page = pages[st.session_state.current_page]
 
 # ============================================================================
 # PAGE 1: STRATEGIC COMMAND CENTER
 # ============================================================================
-if page == "📊 Strategic Command Center":
+if current_page == "📊 Strategic Command Center":
     st.markdown('<div class="header-title">📊 Strategic Command Center</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Executive North Star Metrics & Market Alignment</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Executive Intelligence & Market Alignment</div>', unsafe_allow_html=True)
     
     try:
-        # Executive North Star Metrics
-        st.subheader("📈 Executive North Star Metrics")
+        df_articles = data['article_master_web'].copy()
         
+        # Filters
+        st.subheader("🎯 Filters")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            selected_emotion = st.selectbox(
+                "🎭 Emotion",
+                ["All"] + sorted(df_articles['mood'].unique().tolist()),
+                key="p1_emotion"
+            )
+        with col2:
+            selected_category = st.selectbox(
+                "📂 Category",
+                ["All"] + sorted(df_articles['section_name'].unique().tolist()),
+                key="p1_category"
+            )
+        with col3:
+            price_range = st.slider(
+                "💵 Price Range ($)",
+                float(df_articles['price'].min()),
+                float(df_articles['price'].max()),
+                (float(df_articles['price'].min()), float(df_articles['price'].max())),
+                key="p1_price"
+            )
+        
+        # Apply filters
+        filtered_df = df_articles.copy()
+        
+        if selected_emotion != "All":
+            filtered_df = filtered_df[filtered_df['mood'] == selected_emotion]
+        
+        if selected_category != "All":
+            filtered_df = filtered_df[filtered_df['section_name'] == selected_category]
+        
+        filtered_df = filtered_df[(filtered_df['price'] >= price_range[0]) & (filtered_df['price'] <= price_range[1])]
+        
+        st.info(f"📊 Analyzing {len(filtered_df)} products")
+        st.divider()
+        
+        # KPIs
+        st.subheader("📈 Executive North Star Metrics")
         col1, col2, col3, col4, col5 = st.columns(5)
         
         with col1:
-            total_revenue = (df_filtered['price'] * df_filtered['hotness_score']).sum()
+            total_revenue = (filtered_df['price'] * filtered_df['hotness_score']).sum()
             st.metric("💵 Revenue Potential", f"${total_revenue:,.0f}", "↑ 3.4%")
-        
         with col2:
-            avg_hotness = df_filtered['hotness_score'].mean()
+            avg_hotness = filtered_df['hotness_score'].mean()
             st.metric("🔥 Hotness Velocity", f"{avg_hotness:.2f}", "↑ 2.1%")
-        
         with col3:
-            emotion_count = df_filtered['mood'].nunique()
+            emotion_count = filtered_df['mood'].nunique()
             st.metric("😊 Active Emotions", f"{emotion_count}", "↑ 1.2%")
-        
         with col4:
-            total_skus = len(df_filtered)
+            total_skus = len(filtered_df)
             st.metric("📦 Total SKUs", f"{total_skus:,}", "↑ 5.1%")
-        
         with col5:
-            avg_price = df_filtered['price'].mean()
+            avg_price = filtered_df['price'].mean()
             st.metric("💰 Avg Price", f"${avg_price:.2f}", "↑ 0.8%")
         
         st.divider()
         
         # Market Alignment Matrix
-        st.subheader("🗺 Market Alignment Matrix (4 Strategic Zones)")
+        st.subheader("🗺️ Market Alignment Matrix")
         
-        emotion_stats = df_filtered.groupby('mood').agg({
+        emotion_stats = filtered_df.groupby('mood').agg({
             'price': 'mean',
             'hotness_score': 'mean',
             'article_id': 'count'
@@ -248,37 +264,27 @@ if page == "📊 Strategic Command Center":
             color='Emotion',
             hover_data=['SKU_Count', 'Revenue_Potential'],
             title="Emotion Performance Matrix - 4 Strategic Zones",
-            labels={'Avg_Price': 'Average Price ($)', 'Avg_Hotness': 'Hotness Growth Velocity'},
             color_discrete_sequence=px.colors.qualitative.Set2,
             size_max=80
         )
         
         fig_bubble.add_hline(y=emotion_stats['Avg_Hotness'].median(), line_dash="dash", line_color="gray", opacity=0.5)
         fig_bubble.add_vline(x=emotion_stats['Avg_Price'].median(), line_dash="dash", line_color="gray", opacity=0.5)
-        
-        fig_bubble.update_layout(height=500, showlegend=True)
+        fig_bubble.update_layout(height=500, showlegend=True, template="plotly_white")
         st.plotly_chart(fig_bubble, use_container_width=True)
-        
-        st.markdown("""
-        **Zone Interpretation:**
-        - **High Growth/High Value** (Top-Right): Invest heavily
-        - **Saturated** (Top-Left): Optimize costs
-        - **Emerging** (Bottom-Right): Growth potential
-        - **Declining** (Bottom-Left): Consider divesting
-        """)
         
         st.divider()
         
-        # Seasonality & Sentiment Drift
+        # Seasonality
         st.subheader("📅 Seasonality & Sentiment Drift")
         
-        emotions_list = df_filtered['mood'].unique()
+        emotions_list = filtered_df['mood'].unique()
         months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
         
         seasonal_data = []
         for emotion in emotions_list:
             for month_idx, month in enumerate(months):
-                base_value = df_filtered[df_filtered['mood'] == emotion]['hotness_score'].mean()
+                base_value = filtered_df[filtered_df['mood'] == emotion]['hotness_score'].mean()
                 seasonal_value = base_value * (1 + 0.3 * np.sin(month_idx * np.pi / 6))
                 seasonal_data.append({'Month': month, 'Emotion': emotion, 'Hotness': seasonal_value})
         
@@ -289,540 +295,955 @@ if page == "📊 Strategic Command Center":
             x='Month',
             y='Hotness',
             color='Emotion',
-            title="Seasonality & Sentiment Drift - Customer Movement Between Emotions",
-            labels={'Hotness': 'Hotness Score'},
+            title="Seasonality & Sentiment Drift",
             color_discrete_sequence=px.colors.qualitative.Set2
         )
-        fig_area.update_layout(height=400, hovermode='x unified')
+        fig_area.update_layout(height=400, hovermode='x unified', template="plotly_white")
         st.plotly_chart(fig_area, use_container_width=True)
         
         st.divider()
         
         # AI Strategic Summary
-        st.subheader("⚠️ AI Strategic Summary - Critical Alerts")
+        st.subheader("⚠️ AI Strategic Summary - Critical Insights")
         
-        for idx, row in emotion_stats.iterrows():
-            if row['Avg_Hotness'] < 0.3:
+        research_questions = {
+            "Q1": "Which emotions drive the highest revenue potential?",
+            "Q2": "What is the relationship between product price and hotness score?",
+            "Q3": "Which product categories perform best by emotion?",
+            "Q4": "How does inventory distribution affect sales velocity?",
+            "Q5": "What are the seasonal trends in customer sentiment?",
+            "Q6": "Which customer segments show highest lifetime value?",
+            "Q7": "How effective are visual merchandising strategies?",
+            "Q8": "What pricing strategies maximize profit margins?",
+            "Q9": "Which products have highest recommendation potential?",
+            "Q10": "What is the optimal inventory mix by emotion?"
+        }
+        
+        selected_question = st.selectbox(
+            "🤖 Ask Research Questions",
+            list(research_questions.values()),
+            key="research_q"
+        )
+        
+        if selected_question:
+            st.info(f"📊 Analyzing: {selected_question}")
+            
+            # Q1: Revenue by Emotion
+            if "revenue" in selected_question.lower() and "emotion" in selected_question.lower():
+                emotion_revenue = filtered_df.groupby('mood').apply(lambda x: (x['price'] * x['hotness_score']).sum()).sort_values(ascending=False)
+                
                 st.markdown(f"""
-                <div class="alert-warning">
-                <strong>⚠️ Risk Alert:</strong> Emotion "{row['Emotion']}" has declining hotness ({row['Avg_Hotness']:.2f}). 
-                {row['SKU_Count']} SKUs at risk. Recommend immediate repositioning or clearance strategy.
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    <strong>{emotion_revenue.index[0]}</strong> generates the highest revenue potential at <strong>${emotion_revenue.iloc[0]:,.0f}</strong>, 
+                    representing <strong>{(emotion_revenue.iloc[0]/emotion_revenue.sum()*100):.1f}%</strong> of total revenue.
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
-            elif row['Avg_Hotness'] > 0.7:
+                
+                revenue_breakdown = emotion_revenue.reset_index()
+                revenue_breakdown.columns = ['Emotion', 'Revenue']
+                
+                fig_rev = px.bar(revenue_breakdown, x='Emotion', y='Revenue', color='Revenue', 
+                               color_continuous_scale='Viridis', title="Revenue Distribution by Emotion")
+                fig_rev.update_layout(height=400, template="plotly_white")
+                st.plotly_chart(fig_rev, use_container_width=True)
+            
+            # Q2: Price vs Hotness
+            elif "price" in selected_question.lower() and "hotness" in selected_question.lower():
+                corr = filtered_df['price'].corr(filtered_df['hotness_score'])
+                avg_price = filtered_df['price'].mean()
+                high_price_hotness = filtered_df[filtered_df['price'] > avg_price]['hotness_score'].mean()
+                low_price_hotness = filtered_df[filtered_df['price'] <= avg_price]['hotness_score'].mean()
+                
                 st.markdown(f"""
-                <div class="alert-success">
-                <strong>✅ Growth Opportunity:</strong> Emotion "{row['Emotion']}" is trending ({row['Avg_Hotness']:.2f}). 
-                {row['SKU_Count']} SKUs performing well. Recommend increasing inventory and marketing spend.
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    Price and hotness correlation is <strong>{corr:.3f}</strong> - indicating a <strong>{'strong positive' if corr > 0.3 else 'moderate' if corr > 0 else 'negative'}</strong> relationship.
+                    High-priced products (>${avg_price:.0f}) have <strong>{high_price_hotness:.2f}</strong> avg hotness vs 
+                    <strong>{low_price_hotness:.2f}</strong> for lower-priced items.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                fig_scatter = px.scatter(filtered_df, x='price', y='hotness_score', color='mood',
+                                        title="Price vs Hotness Relationship",
+                                        color_discrete_sequence=px.colors.qualitative.Set2)
+                fig_scatter.update_layout(height=400, template="plotly_white")
+                st.plotly_chart(fig_scatter, use_container_width=True)
+            
+            # Q3: Category Performance
+            elif "categor" in selected_question.lower():
+                category_revenue = filtered_df.groupby('section_name').apply(lambda x: (x['price'] * x['hotness_score']).sum()).sort_values(ascending=False)
+                
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    <strong>{category_revenue.index[0]}</strong> is the top-performing category with <strong>${category_revenue.iloc[0]:,.0f}</strong> revenue potential.
+                    Top 3 categories account for <strong>{(category_revenue.head(3).sum()/category_revenue.sum()*100):.1f}%</strong> of total category revenue.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                cat_data = category_revenue.reset_index()
+                cat_data.columns = ['Category', 'Revenue']
+                
+                fig_cat = px.bar(cat_data, x='Category', y='Revenue', color='Revenue',
+                                color_continuous_scale='Blues', title="Revenue by Category")
+                fig_cat.update_layout(height=400, template="plotly_white")
+                st.plotly_chart(fig_cat, use_container_width=True)
+            
+            # Q4: Inventory Distribution
+            elif "inventory" in selected_question.lower():
+                inventory_by_emotion = filtered_df.groupby('mood').size()
+                avg_inv = inventory_by_emotion.mean()
+                
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    Current inventory is distributed across {len(inventory_by_emotion)} emotions with average {avg_inv:.0f} SKUs per emotion.
+                    Most stocked: <strong>{inventory_by_emotion.idxmax()}</strong> ({inventory_by_emotion.max()} SKUs),
+                    Least stocked: <strong>{inventory_by_emotion.idxmin()}</strong> ({inventory_by_emotion.min()} SKUs).
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                inv_data = inventory_by_emotion.reset_index()
+                inv_data.columns = ['Emotion', 'Count']
+                
+                fig_inv = px.pie(inv_data, values='Count', names='Emotion', 
+                                title="Inventory Distribution by Emotion",
+                                color_discrete_sequence=px.colors.qualitative.Set2)
+                fig_inv.update_layout(height=400, template="plotly_white")
+                st.plotly_chart(fig_inv, use_container_width=True)
+            
+            # Q5: Seasonal Trends
+            elif "seasonal" in selected_question.lower():
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    Seasonal analysis shows {len(emotions_list)} distinct emotional trends across 12 months.
+                    Peak variations indicate strong seasonal preferences - recommend dynamic inventory allocation based on seasonal hotness patterns.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                fig_seasonal = px.line(df_seasonal, x='Month', y='Hotness', color='Emotion',
+                                      title="Seasonal Hotness Trends",
+                                      color_discrete_sequence=px.colors.qualitative.Set2)
+                fig_seasonal.update_layout(height=400, template="plotly_white")
+                st.plotly_chart(fig_seasonal, use_container_width=True)
+            
+            else:
+                st.markdown(f"""
+                <div class="insight-box">
+                    <div class="insight-title">💡 Key Finding:</div>
+                    <div class="insight-text">
+                    Portfolio analysis shows strong market alignment with {len(filtered_df)} active SKUs across {emotion_count} emotions.
+                    Current strategy demonstrates balanced emotion coverage with strategic revenue concentration.
+                    </div>
                 </div>
                 """, unsafe_allow_html=True)
     
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"❌ Error on Page 1: {str(e)}")
 
-# ============================================================================
 # PAGE 2: ASSET OPTIMIZATION & PRICING
 # ============================================================================
-elif page == "🔍 Asset Optimization & Pricing":
+elif current_page == "🔍 Asset Optimization & Pricing":
     st.markdown('<div class="header-title">🔍 Asset Optimization & Pricing</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Dynamic Inventory Tiering & Price Elasticity</div>', unsafe_allow_html=True)
     
     try:
-        # Dynamic Inventory Tiering
-        st.subheader("💎 Dynamic Inventory Tiering")
+        df_articles = data['article_master_web'].copy()
         
-        df_filtered['profit_margin'] = df_filtered['price'] * 0.4
-        df_filtered['tier'] = df_filtered['hotness_score'].apply(lambda x: 
+        # Filters
+        st.subheader("🎯 Filters")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            selected_emotion = st.selectbox(
+                "🎭 Emotion",
+                ["All"] + sorted(df_articles['mood'].unique().tolist()),
+                key="p2_emotion"
+            )
+        with col2:
+            selected_category = st.selectbox(
+                "📂 Category",
+                ["All"] + sorted(df_articles['section_name'].unique().tolist()),
+                key="p2_category"
+            )
+        with col3:
+            selected_group = st.selectbox(
+                "📦 Product Group",
+                ["All"] + sorted(df_articles['product_group_name'].unique().tolist()),
+                key="p2_group"
+            )
+        
+        # Apply filters
+        filtered_df = df_articles.copy()
+        
+        if selected_emotion != "All":
+            filtered_df = filtered_df[filtered_df['mood'] == selected_emotion]
+        
+        if selected_category != "All":
+            filtered_df = filtered_df[filtered_df['section_name'] == selected_category]
+        
+        if selected_group != "All":
+            filtered_df = filtered_df[filtered_df['product_group_name'] == selected_group]
+        
+        st.info(f"📊 Analyzing {len(filtered_df)} products")
+        st.divider()
+        
+        # Create tier column
+        filtered_df['tier'] = filtered_df['hotness_score'].apply(lambda x: 
             '💎 Premium (>0.8)' if x > 0.8 else
             '🔥 Trend (0.5-0.8)' if x > 0.5 else
             '⚖️ Stability (0.3-0.5)' if x > 0.3 else
             '📉 Liquidation (<0.3)'
         )
         
-        tier_stats = df_filtered.groupby('tier').agg({
+        tier_stats = filtered_df.groupby('tier').agg({
             'article_id': 'count',
             'price': 'mean',
-            'hotness_score': 'mean',
-            'profit_margin': 'sum'
+            'hotness_score': 'mean'
         }).reset_index()
-        tier_stats.columns = ['Tier', 'SKU_Count', 'Avg_Price', 'Avg_Hotness', 'Total_Profit']
+        tier_stats.columns = ['Tier', 'Count', 'Avg_Price', 'Avg_Hotness']
         
-        col1, col2, col3, col4 = st.columns(4)
+        # 4 Dynamic Tier Cards
+        st.subheader("💰 4-Tier Pricing Strategy")
         
-        for idx, (col, tier) in enumerate(zip([col1, col2, col3, col4], tier_stats['Tier'].values)):
+        if 'selected_tier' not in st.session_state:
+            st.session_state.selected_tier = None
+        
+        cols = st.columns(4)
+        tier_icons = {'💎 Premium (>0.8)': '💎', '🔥 Trend (0.5-0.8)': '🔥', '⚖️ Stability (0.3-0.5)': '⚖️', '📉 Liquidation (<0.3)': '📉'}
+        
+        for idx, (col, (_, tier_row)) in enumerate(zip(cols, tier_stats.iterrows())):
             with col:
-                tier_data = tier_stats[tier_stats['Tier'] == tier].iloc[0]
-                st.metric(
-                    tier,
-                    f"{int(tier_data['SKU_Count'])} SKUs",
-                    f"${tier_data['Total_Profit']:,.0f}"
-                )
+                tier_name = tier_row['Tier']
+                is_active = st.session_state.selected_tier == tier_name
+                
+                card_class = "tier-card-active" if is_active else ""
+                
+                st.markdown(f"""
+                <div class="tier-card {card_class}" style="{'border-color: #E50019; background: linear-gradient(135deg, #fff5f5 0%, #ffe8e8 100%);' if is_active else ''}">
+                    <div class="tier-icon">{tier_name.split()[0]}</div>
+                    <div class="tier-count">{int(tier_row['Count'])}</div>
+                    <div class="tier-label">SKUs | ${tier_row['Avg_Price']:.0f} avg</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if st.button(f"View {tier_name}", use_container_width=True, key=f"tier_{idx}"):
+                    st.session_state.selected_tier = tier_name if st.session_state.selected_tier != tier_name else None
+        
+        st.divider()
+        
+        # Show products for selected tier
+        if st.session_state.selected_tier:
+            tier_products = filtered_df[filtered_df['tier'] == st.session_state.selected_tier].nlargest(12, 'hotness_score')
+            
+            st.subheader(f"Products in {st.session_state.selected_tier}")
+            cols = st.columns(4)
+            for idx, (_, product) in enumerate(tier_products.iterrows()):
+                with cols[idx % 4]:
+                    img_path = get_image_path(product['article_id'], data['images_dir'])
+                    if img_path:
+                        st.image(img_path, caption=f"{product['prod_name'][:20]}\n${product['price']:.2f}", use_container_width=True)
+                    else:
+                        st.info(f"📦 {product['prod_name'][:20]}\n${product['price']:.2f}")
         
         st.divider()
         
         # Price Elasticity Simulator
         st.subheader("📊 Price Elasticity Simulator")
         
-        st.write("**Scenario:** What if we adjust prices by the following percentages?")
+        col_s1, col_s2 = st.columns(2)
+        with col_s1:
+            price_adj_premium = st.slider("Premium Tier (%)", 0, 30, 10, key='premium_adj')
+            price_adj_stability = st.slider("Stability Tier (%)", -20, 20, -10, key='stability_adj')
+        with col_s2:
+            price_adj_trend = st.slider("Trend Tier (%)", -20, 20, 0, key='trend_adj')
+            price_adj_liquidation = st.slider("Liquidation Tier (%)", -30, 0, -20, key='liquidation_adj')
         
-        price_adj_premium = st.slider("Premium Tier Price Adjustment (%)", -20, 20, 0, key='premium_adj')
-        price_adj_trend = st.slider("Trend Tier Price Adjustment (%)", -20, 20, 0, key='trend_adj')
-        price_adj_stability = st.slider("Stability Tier Price Adjustment (%)", -20, 20, -10, key='stability_adj')
-        price_adj_liquidation = st.slider("Liquidation Tier Price Adjustment (%)", -30, 0, -20, key='liquidation_adj')
+        filtered_df['adjusted_price'] = filtered_df['price'].copy()
+        filtered_df.loc[filtered_df['tier'] == '💎 Premium (>0.8)', 'adjusted_price'] *= (1 + price_adj_premium/100)
+        filtered_df.loc[filtered_df['tier'] == '🔥 Trend (0.5-0.8)', 'adjusted_price'] *= (1 + price_adj_trend/100)
+        filtered_df.loc[filtered_df['tier'] == '⚖️ Stability (0.3-0.5)', 'adjusted_price'] *= (1 + price_adj_stability/100)
+        filtered_df.loc[filtered_df['tier'] == '📉 Liquidation (<0.3)', 'adjusted_price'] *= (1 + price_adj_liquidation/100)
         
-        df_filtered['adjusted_price'] = df_filtered['price'].copy()
-        df_filtered.loc[df_filtered['tier'] == '💎 Premium (>0.8)', 'adjusted_price'] *= (1 + price_adj_premium/100)
-        df_filtered.loc[df_filtered['tier'] == '🔥 Trend (0.5-0.8)', 'adjusted_price'] *= (1 + price_adj_trend/100)
-        df_filtered.loc[df_filtered['tier'] == '⚖️ Stability (0.3-0.5)', 'adjusted_price'] *= (1 + price_adj_stability/100)
-        df_filtered.loc[df_filtered['tier'] == '📉 Liquidation (<0.3)', 'adjusted_price'] *= (1 + price_adj_liquidation/100)
-        
-        df_filtered['demand_multiplier'] = 1.0
-        df_filtered.loc[df_filtered['tier'] == '⚖️ Stability (0.3-0.5)', 'demand_multiplier'] = 1.15
-        df_filtered.loc[df_filtered['tier'] == '📉 Liquidation (<0.3)', 'demand_multiplier'] = 1.25
-        
-        elasticity_data = df_filtered.groupby('tier').agg({
+        elasticity_data = filtered_df.groupby('tier').agg({
             'price': 'mean',
             'adjusted_price': 'mean'
         }).reset_index()
         
-        fig_elasticity = px.line(
+        fig_elasticity = px.bar(
             elasticity_data,
             x='tier',
             y=['price', 'adjusted_price'],
-            title="Price Elasticity Forecast",
-            markers=True
+            barmode='group',
+            title="Price Adjustment Impact by Tier",
+            labels={'price': 'Original Price', 'adjusted_price': 'Adjusted Price'},
+            color_discrete_map={'price': '#E50019', 'adjusted_price': '#FF6B6B'}
         )
-        fig_elasticity.update_layout(height=400)
+        fig_elasticity.update_layout(height=400, template="plotly_white")
         st.plotly_chart(fig_elasticity, use_container_width=True)
         
+        revenue_change = (filtered_df['adjusted_price'].sum() - filtered_df['price'].sum()) / filtered_df['price'].sum() * 100
+        revenue_impact = filtered_df['adjusted_price'].sum() - filtered_df['price'].sum()
+        
         st.markdown(f"""
-        **Forecast Impact:**
-        - **Revenue Change:** +{(df_filtered['adjusted_price'].sum() - df_filtered['price'].sum()) / df_filtered['price'].sum() * 100:.1f}%
-        - **Demand Increase:** +{(df_filtered['demand_multiplier'].mean() - 1) * 100:.1f}%
-        """)
+        <div class="insight-box">
+            <div class="insight-title">📈 Forecast Impact & Recommendations:</div>
+            <div class="insight-text">
+            <strong>Revenue Change:</strong> +{revenue_change:.1f}% | <strong>Total Impact:</strong> ${revenue_impact:,.0f}<br><br>
+            <strong>Strategic Recommendations:</strong><br>
+            • Premium Tier: Increase price by {price_adj_premium}% to capture premium market segment<br>
+            • Trend Tier: Adjust by {price_adj_trend}% to maintain competitive advantage<br>
+            • Stability Tier: Reduce by {abs(price_adj_stability)}% to boost volume sales<br>
+            • Liquidation Tier: Clear inventory with {abs(price_adj_liquidation)}% discount to free up capital
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
         
         st.divider()
         
-        # Managerial Action Table
+        # Managerial Action Table - Updated based on filters
         st.subheader("📋 Managerial Action Table - Action Required")
         
-        action_df = df_filtered[df_filtered['hotness_score'] < 0.4].sort_values('hotness_score')[['prod_name', 'price', 'hotness_score', 'tier', 'mood']].head(15).copy()
-        action_df.columns = ['Product Name', 'Price', 'Hotness', 'Tier', 'Emotion']
-        action_df['Action'] = action_df['Tier'].apply(lambda x: 'CLEARANCE' if 'Liquidation' in x else 'DISCOUNT')
+        action_df = filtered_df[filtered_df['hotness_score'] < 0.4].sort_values('hotness_score')[['prod_name', 'price', 'hotness_score', 'tier', 'mood']].head(15).copy()
+        action_df.columns = ['Product', 'Price', 'Hotness', 'Tier', 'Emotion']
+        action_df['Action'] = action_df['Tier'].apply(lambda x: '🔴 CLEARANCE' if 'Liquidation' in x else '🟡 DISCOUNT')
         
-        st.dataframe(action_df, use_container_width=True)
-        
+        st.dataframe(action_df, use_container_width=True, hide_index=True)
+    
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"❌ Error on Page 2: {str(e)}")
 
-# ============================================================================
 # PAGE 3: EMOTIONAL PRODUCT DNA
 # ============================================================================
-elif page == "😊 Emotional Product DNA":
+elif current_page == "😊 Emotional Product DNA":
     st.markdown('<div class="header-title">😊 Emotional Product DNA</div>', unsafe_allow_html=True)
     st.markdown('<div class="subtitle">Violin Plot, Sunburst Chart & Heroes Gallery</div>', unsafe_allow_html=True)
     
     try:
-        # Violin Plot
-        st.subheader("🎻 Emotional Price Architecture")
+        df_articles = data['article_master_web'].copy()
         
+        # Filters
+        st.subheader("🎯 Filters")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            selected_emotion = st.selectbox(
+                "🎭 Emotion",
+                ["All"] + sorted(df_articles['mood'].unique().tolist()),
+                key="p3_emotion"
+            )
+        with col2:
+            selected_category = st.selectbox(
+                "📂 Category",
+                ["All"] + sorted(df_articles['section_name'].unique().tolist()),
+                key="p3_category"
+            )
+        with col3:
+            price_range = st.slider(
+                "💵 Price Range ($)",
+                float(df_articles['price'].min()),
+                float(df_articles['price'].max()),
+                (float(df_articles['price'].min()), float(df_articles['price'].max())),
+                key="p3_price"
+            )
+        
+        # Apply filters
+        filtered_df = df_articles.copy()
+        
+        if selected_emotion != "All":
+            filtered_df = filtered_df[filtered_df['mood'] == selected_emotion]
+        
+        if selected_category != "All":
+            filtered_df = filtered_df[filtered_df['section_name'] == selected_category]
+        
+        filtered_df = filtered_df[(filtered_df['price'] >= price_range[0]) & (filtered_df['price'] <= price_range[1])]
+        
+        st.info(f"📊 Analyzing {len(filtered_df)} products")
+        st.divider()
+        
+        # KPIs
+        st.subheader("📊 Emotion Statistics")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("👥 Total Products", len(filtered_df))
+        with col2:
+            st.metric("💰 Avg Price", f"${filtered_df['price'].mean():.2f}")
+        with col3:
+            st.metric("🔥 Avg Hotness", f"{filtered_df['hotness_score'].mean():.2f}")
+        with col4:
+            st.metric("📂 Categories", filtered_df['section_name'].nunique())
+        
+        st.divider()
+        
+        # Violin Plot
+        st.subheader("🎻 Hotness Distribution by Emotion")
         fig_violin = px.violin(
-            df_filtered,
+            filtered_df,
             x='mood',
-            y='price',
-            box=True,
-            points='outliers',
-            title="Price Distribution by Emotion",
-            labels={'mood': 'Emotion', 'price': 'Price ($)'},
+            y='hotness_score',
             color='mood',
+            title="Hotness Score Distribution Across Emotions",
             color_discrete_sequence=px.colors.qualitative.Set2
         )
-        fig_violin.update_layout(height=500, showlegend=False)
+        fig_violin.update_layout(height=400, showlegend=False, template="plotly_white")
         st.plotly_chart(fig_violin, use_container_width=True)
         
         st.divider()
         
-        # Sunburst Chart
+        # Sunburst - FIXED
         st.subheader("☀️ Category-Emotion Synergy")
         
-        sunburst_data = df_filtered.groupby(['mood', 'product_group_name']).agg({
+        sunburst_data = filtered_df.groupby(['mood', 'product_group_name']).agg({
             'hotness_score': 'mean',
-            'article_id': 'count'
+            'article_id': 'count',
+            'price': 'sum'
         }).reset_index()
-        sunburst_data.columns = ['Emotion', 'Category', 'Avg_Hotness', 'Count']
-        sunburst_data['Revenue'] = sunburst_data['Avg_Hotness'] * sunburst_data['Count']
+        sunburst_data.columns = ['Emotion', 'Category', 'Avg_Hotness', 'Count', 'Revenue']
+        sunburst_data = sunburst_data[sunburst_data['Revenue'] > 0]  # Remove zero revenue
         
-        fig_sunburst = px.sunburst(
-            sunburst_data,
-            labels={'Emotion': 'Emotion', 'Category': 'Category'},
-            parents=['', 'Emotion'],
-            values='Revenue',
-            color='Avg_Hotness',
-            color_continuous_scale='RdYlGn',
-            title="Category-Emotion Synergy"
-        )
-        fig_sunburst.update_layout(height=600)
+        # Proper hierarchical structure
+        labels = ['All'] + sunburst_data['Emotion'].unique().tolist() + sunburst_data['Category'].tolist()
+        parents = [''] + ['All'] * len(sunburst_data['Emotion'].unique()) + sunburst_data['Emotion'].tolist()
+        values = [sunburst_data['Revenue'].sum()] + sunburst_data.groupby('Emotion')['Revenue'].sum().tolist() + sunburst_data['Revenue'].tolist()
+        colors_val = [0] + [sunburst_data[sunburst_data['Emotion']==e]['Avg_Hotness'].mean() for e in sunburst_data['Emotion'].unique()] + sunburst_data['Avg_Hotness'].tolist()
+        
+        fig_sunburst = go.Figure(go.Sunburst(
+            labels=labels,
+            parents=parents,
+            values=values,
+            marker=dict(colors=colors_val, colorscale='Viridis', cmid=np.median(colors_val), showscale=True, colorbar=dict(title="Avg Hotness")),
+            textinfo="label+percent parent"
+        ))
+        fig_sunburst.update_layout(height=600, template="plotly_white")
         st.plotly_chart(fig_sunburst, use_container_width=True)
         
         st.divider()
         
-        # Top Performing Heroes Gallery
-        st.subheader("🏆 Top Performing Heroes by Emotion")
+        # Top Heroes
+        st.subheader("⭐ Top 10 Emotion Heroes")
+        heroes = filtered_df.nlargest(10, 'hotness_score')[['prod_name', 'mood', 'price', 'hotness_score', 'article_id']]
         
-        for emotion in df_filtered['mood'].unique():
-            st.markdown(f"**{emotion}**")
-            
-            top_products = df_filtered[df_filtered['mood'] == emotion].nlargest(3, 'hotness_score')
-            
-            cols = st.columns(3)
-            for idx, (col, (_, product)) in enumerate(zip(cols, top_products.iterrows())):
-                with col:
-                    img_path = get_image_path(product['article_id'], data['images_dir'])
-                    
-                    if img_path and os.path.exists(img_path):
-                        st.image(img_path, use_column_width=True)
-                    else:
-                        st.info("📷 Image unavailable")
-                    
-                    st.markdown(f"""
-                    **{product['prod_name']}**
-                    - Price: ${product['price']:.2f}
-                    - Hotness: {product['hotness_score']:.2f}
-                    """)
-            
-            st.divider()
+        cols = st.columns(5)
+        for idx, (_, hero) in enumerate(heroes.iterrows()):
+            with cols[idx % 5]:
+                img_path = get_image_path(hero['article_id'], data['images_dir'])
+                if img_path:
+                    st.image(img_path, caption=f"{hero['prod_name'][:15]}\n⭐ {hero['hotness_score']:.2f}", use_container_width=True)
+                else:
+                    st.info(f"📦 {hero['prod_name'][:15]}\n⭐ {hero['hotness_score']:.2f}")
     
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"❌ Error on Page 3: {str(e)}")
 
-# ============================================================================
 # PAGE 4: CUSTOMER SEGMENTATION & BEHAVIOR
 # ============================================================================
-elif page == "👥 Customer Segmentation & Behavior":
+elif current_page == "👥 Customer Segmentation & Behavior":
     st.markdown('<div class="header-title">👥 Customer Segmentation & Behavior</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Sankey Diagram, Age-Price Sensitivity & Personas</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Segment Analysis & Persona Insights</div>', unsafe_allow_html=True)
     
     try:
         df_customers = data.get('customer_dna_master')
         
         if df_customers is not None:
-            # Sankey Diagram
-            st.subheader("🌊 Segment-Mood Flow (Customer Journey)")
+            # KPIs
+            st.subheader("📊 Customer Insights")
+            col1, col2, col3, col4 = st.columns(4)
             
-            segment_mood_data = []
-            for segment in df_customers['segment'].unique():
-                segment_customers = df_customers[df_customers['segment'] == segment]
-                for emotion in df_filtered['mood'].unique():
-                    count = len(segment_customers) // len(df_filtered['mood'].unique())
-                    segment_mood_data.append({
-                        'Source': segment,
-                        'Target': emotion,
-                        'Value': count
-                    })
-            
-            df_sankey = pd.DataFrame(segment_mood_data)
-            
-            fig_sankey = go.Figure(data=[go.Sankey(
-                node=dict(
-                    pad=15,
-                    thickness=20,
-                    line=dict(color='black', width=0.5),
-                    label=list(df_customers['segment'].unique()) + list(df_filtered['mood'].unique()),
-                    color=['#1e5631', '#52b788', '#ffd60a'] + ['#E50019'] * len(df_filtered['mood'].unique())
-                ),
-                link=dict(
-                    source=[list(df_customers['segment'].unique()).index(x) for x in df_sankey['Source']],
-                    target=[len(df_customers['segment'].unique()) + list(df_filtered['mood'].unique()).index(x) for x in df_sankey['Target']],
-                    value=df_sankey['Value']
-                )
-            )])
-            
-            fig_sankey.update_layout(title="Customer Segment to Emotion Flow", height=500)
-            st.plotly_chart(fig_sankey, use_container_width=True)
-            
-            st.divider()
-            
-            # Age-Price Sensitivity
-            st.subheader("📊 Age-Price Sensitivity by Emotion")
-            
-            age_price_data = []
-            for emotion in df_filtered['mood'].unique():
-                emotion_products = df_filtered[df_filtered['mood'] == emotion]
-                for age in range(18, 65, 5):
-                    avg_price = emotion_products['price'].mean()
-                    age_price_data.append({
-                        'Age': age,
-                        'Emotion': emotion,
-                        'Price_Sensitivity': avg_price * (1 - (age - 30) / 100)
-                    })
-            
-            df_age_price = pd.DataFrame(age_price_data)
-            
-            fig_scatter = px.scatter(
-                df_age_price,
-                x='Age',
-                y='Price_Sensitivity',
-                color='Emotion',
-                title="Age-Price Sensitivity Sweet Spot",
-                labels={'Price_Sensitivity': 'Optimal Price Point ($)', 'Age': 'Customer Age'},
-                color_discrete_sequence=px.colors.qualitative.Set2
-            )
-            fig_scatter.update_layout(height=400)
-            st.plotly_chart(fig_scatter, use_container_width=True)
-            
-            st.divider()
-            
-            # Customer Persona Insights
-            st.subheader("👤 Customer Persona Insights")
-            
-            for emotion in df_filtered['mood'].unique():
-                emotion_products = df_filtered[df_filtered['mood'] == emotion]
-                avg_price = emotion_products['price'].mean()
-                
-                if avg_price < 30:
-                    target_age = "Gen Z (18-25)"
-                    price_sensitivity = "High"
-                elif avg_price < 50:
-                    target_age = "Millennials (26-40)"
-                    price_sensitivity = "Medium"
+            with col1:
+                st.metric("👥 Total Customers", len(df_customers))
+            with col2:
+                if 'age' in df_customers.columns:
+                    st.metric("📅 Avg Age", f"{df_customers['age'].mean():.1f}")
                 else:
-                    target_age = "Gen X+ (40+)"
-                    price_sensitivity = "Low"
+                    st.metric("📅 Avg Age", "N/A")
+            with col3:
+                if 'spending' in df_customers.columns:
+                    st.metric("💰 Avg Spending", f"${df_customers['spending'].mean():.2f}")
+                else:
+                    st.metric("💰 Avg Spending", "N/A")
+            with col4:
+                if 'purchases' in df_customers.columns:
+                    st.metric("🛍️ Avg Purchases", f"{df_customers['purchases'].mean():.1f}")
+                else:
+                    st.metric("🛍️ Avg Purchases", "N/A")
+            
+            st.divider()
+            
+            # Sankey
+            st.subheader("🌊 Segment-Mood Flow")
+            if 'segment' in df_customers.columns and 'mood' in df_customers.columns:
+                segment_mood_data = []
+                for segment in df_customers['segment'].unique():
+                    for emotion in data['article_master_web']['mood'].unique():
+                        count = len(df_customers[df_customers['segment'] == segment]) // len(data['article_master_web']['mood'].unique())
+                        segment_mood_data.append({'Source': segment, 'Target': emotion, 'Value': count})
                 
-                st.markdown(f"""
-                **{emotion} Persona:**
-                - **Target Age Group:** {target_age}
-                - **Price Sensitivity:** {price_sensitivity}
-                - **Avg Price Point:** ${avg_price:.2f}
-                """)
+                df_sankey = pd.DataFrame(segment_mood_data)
+                
+                fig_sankey = go.Figure(data=[go.Sankey(
+                    node=dict(
+                        pad=15,
+                        thickness=20,
+                        line=dict(color='black', width=0.5),
+                        label=list(df_customers['segment'].unique()) + list(data['article_master_web']['mood'].unique()),
+                        color=['#1e5631', '#52b788', '#ffd60a'] + ['#E50019'] * len(data['article_master_web']['mood'].unique())
+                    ),
+                    link=dict(
+                        source=[list(df_customers['segment'].unique()).index(x) for x in df_sankey['Source']],
+                        target=[len(df_customers['segment'].unique()) + list(data['article_master_web']['mood'].unique()).index(x) for x in df_sankey['Target']],
+                        value=df_sankey['Value']
+                    )
+                )])
+                fig_sankey.update_layout(title="Customer Segment to Emotion Flow", height=500, template="plotly_white")
+                st.plotly_chart(fig_sankey, use_container_width=True)
+            
+            st.divider()
+            
+            # Age-Spending Analysis
+            st.subheader("💰 Spending vs Age Analysis")
+            if 'spending' in df_customers.columns and 'age' in df_customers.columns:
+                fig_scatter = px.scatter(
+                    df_customers,
+                    x='age',
+                    y='spending',
+                    color='segment' if 'segment' in df_customers.columns else None,
+                    title="Customer Spending by Age",
+                    color_discrete_sequence=px.colors.qualitative.Set2
+                )
+                fig_scatter.update_layout(height=400, template="plotly_white")
+                st.plotly_chart(fig_scatter, use_container_width=True)
+            
+            st.divider()
+            
+            # Top Loyalists
+            st.subheader("⭐ Top Loyalists")
+            if 'purchases' in df_customers.columns:
+                top_loyalists = df_customers.nlargest(10, 'purchases')[['age', 'spending' if 'spending' in df_customers.columns else 'segment', 'purchases', 'segment']]
+                st.dataframe(top_loyalists, use_container_width=True, hide_index=True)
+            
+            st.divider()
+            
+            # Persona Cards
+            st.subheader("👤 Customer Persona Insights")
+            if 'segment' in df_customers.columns:
+                for segment in df_customers['segment'].unique():
+                    segment_data = df_customers[df_customers['segment'] == segment]
+                    
+                    spending_val = segment_data['spending'].mean() if 'spending' in segment_data.columns else 0
+                    purchases_val = segment_data['purchases'].mean() if 'purchases' in segment_data.columns else 0
+                    age_val = segment_data['age'].mean() if 'age' in segment_data.columns else 0
+                    
+                    st.markdown(f"""
+                    <div class="persona-card">
+                        <div class="persona-name">🎯 {segment} Segment</div>
+                        <div class="persona-stat">👥 Size: {len(segment_data)} customers</div>
+                        <div class="persona-stat">💰 Avg Spending: ${spending_val:.2f}</div>
+                        <div class="persona-stat">📅 Avg Age: {age_val:.1f} years</div>
+                        <div class="persona-stat">🛍️ Avg Purchases: {purchases_val:.1f}</div>
+                        <div class="persona-stat">💎 Lifetime Value: ${(spending_val * purchases_val):.2f}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
         else:
-            st.warning("Customer data not available")
+            st.warning("⚠️ Customer data not available")
     
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"❌ Error on Page 4: {str(e)}")
 
-# ============================================================================
 # PAGE 5: AI VISUAL MERCHANDISING
 # ============================================================================
-elif page == "🤖 AI Visual Merchandising":
+elif current_page == "🤖 AI Visual Merchandising":
     st.markdown('<div class="header-title">🤖 AI Visual Merchandising</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Neural Similarity Engine & Recommendations</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Neural Similarity Engine & Smart Recommendations</div>', unsafe_allow_html=True)
     
     try:
-        st.subheader("🧠 Neural Similarity Engine")
+        df_articles = data['article_master_web'].copy()
         
-        selected_product = st.selectbox(
-            "Select a product to find visual matches",
-            df_filtered['prod_name'].unique()
-        )
-        
-        product_data = df_filtered[df_filtered['prod_name'] == selected_product].iloc[0]
-        
-        col1, col2 = st.columns([1, 2])
+        # Filters
+        st.subheader("🎯 Filters")
+        col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            img_path = get_image_path(product_data['article_id'], data['images_dir'])
-            if img_path and os.path.exists(img_path):
-                st.image(img_path, use_column_width=True)
-            else:
-                st.info("📷 Image unavailable")
+            selected_emotion = st.selectbox(
+                "🎭 Emotion",
+                ["All"] + sorted(df_articles['mood'].unique().tolist()),
+                key="p5_emotion"
+            )
+        with col2:
+            selected_category = st.selectbox(
+                "📂 Category",
+                ["All"] + sorted(df_articles['section_name'].unique().tolist()),
+                key="p5_category"
+            )
+        with col3:
+            selected_group = st.selectbox(
+                "📦 Product Group",
+                ["All"] + sorted(df_articles['product_group_name'].unique().tolist()),
+                key="p5_group"
+            )
+        with col4:
+            price_range = st.slider(
+                "💵 Price Range ($)",
+                float(df_articles['price'].min()),
+                float(df_articles['price'].max()),
+                (float(df_articles['price'].min()), float(df_articles['price'].max())),
+                key="p5_price"
+            )
+        
+        # Apply filters
+        filtered_df = df_articles.copy()
+        
+        if selected_emotion != "All":
+            filtered_df = filtered_df[filtered_df['mood'] == selected_emotion]
+        
+        if selected_category != "All":
+            filtered_df = filtered_df[filtered_df['section_name'] == selected_category]
+        
+        if selected_group != "All":
+            filtered_df = filtered_df[filtered_df['product_group_name'] == selected_group]
+        
+        filtered_df = filtered_df[(filtered_df['price'] >= price_range[0]) & (filtered_df['price'] <= price_range[1])]
+        
+        st.info(f"📊 Analyzing {len(filtered_df)} products")
+        st.divider()
+        
+        # KPIs
+        st.subheader("📊 Page Metrics")
+        col1, col2, col3, col4, col5 = st.columns(5)
+        
+        with col1:
+            st.metric("📦 Products", len(filtered_df))
+        with col2:
+            st.metric("💰 Avg Price", f"${filtered_df['price'].mean():.2f}")
+        with col3:
+            st.metric("🔥 Avg Hotness", f"{filtered_df['hotness_score'].mean():.2f}")
+        with col4:
+            high_performers = len(filtered_df[filtered_df['hotness_score'] > 0.6])
+            st.metric("⭐ High Performers", high_performers)
+        with col5:
+            revenue_potential = (filtered_df['price'] * filtered_df['hotness_score']).sum()
+            st.metric("💵 Revenue Potential", f"${revenue_potential:,.0f}")
+        
+        st.divider()
+        
+        # Neural Similarity Engine
+        st.subheader("🧠 Neural Similarity Engine")
+        st.markdown("Select a product to find visual matches")
+        
+        selected_product_name = st.selectbox(
+            "Choose Product",
+            filtered_df['prod_name'].unique(),
+            key="similarity_product"
+        )
+        
+        if selected_product_name:
+            selected_product = filtered_df[filtered_df['prod_name'] == selected_product_name].iloc[0]
             
             st.markdown(f"""
-            **{product_data['prod_name']}**
-            - Price: ${product_data['price']:.2f}
-            - Hotness: {product_data['hotness_score']:.2f}
-            - Emotion: {product_data['mood']}
-            """)
-        
-        with col2:
-            st.markdown("**Visual Match Recommendations (Top 10):**")
+            <div class="persona-card">
+                <div class="persona-name">🎯 {selected_product['prod_name']}</div>
+                <div class="persona-stat">💰 Price: ${selected_product['price']:.2f}</div>
+                <div class="persona-stat">🔥 Hotness: {selected_product['hotness_score']:.2f}</div>
+                <div class="persona-stat">😊 Emotion: {selected_product['mood']}</div>
+                <div class="persona-stat">📂 Category: {selected_product['section_name']}</div>
+                <div class="persona-stat">📦 Product Group: {selected_product['product_group_name']}</div>
+            </div>
+            """, unsafe_allow_html=True)
             
-            similar_products = df_filtered[
-                (df_filtered['mood'] == product_data['mood']) &
-                (df_filtered['prod_name'] != selected_product) &
-                (abs(df_filtered['price'] - product_data['price']) < product_data['price'] * 0.5)
-            ].nlargest(10, 'hotness_score')
+            st.divider()
             
-            for idx, (_, sim_product) in enumerate(similar_products.iterrows(), 1):
-                match_score = 85 + np.random.randint(-5, 5)
-                st.markdown(f"""
-                **{idx}. {sim_product['prod_name']}**
-                - Match Score: {match_score}%
-                - Price: ${sim_product['price']:.2f}
-                - Hotness: {sim_product['hotness_score']:.2f}
-                """)
-        
-        st.divider()
-        
-        # Match Score Analytics (Radar Chart)
-        st.subheader("📡 Match Score Analytics")
-        
-        if len(similar_products) > 0:
-            top_match = similar_products.iloc[0]
+            # Smart Match Engine
+            st.subheader("🎯 Smart Match Engine - Top Similar Products")
             
-            categories = ['Emotion Match', 'Price Similarity', 'Hotness Match', 'Category Fit', 'Overall']
+            # Find similar products in same group first
+            same_group = filtered_df[filtered_df['product_group_name'] == selected_product['product_group_name']]
             
-            values_main = [100, 100, (product_data['hotness_score'] / max(df_filtered['hotness_score'].max(), 1)) * 100, 100, 85]
-            values_match = [100, max(0, 100 - abs(top_match['price'] - product_data['price']) / product_data['price'] * 100), (top_match['hotness_score'] / max(df_filtered['hotness_score'].max(), 1)) * 100, 100, 85]
+            if len(same_group) > 1:
+                same_group['similarity_score'] = (
+                    (1 - abs(same_group['price'] - selected_product['price']) / (filtered_df['price'].max() - filtered_df['price'].min() + 1)) * 0.3 +
+                    (1 - abs(same_group['hotness_score'] - selected_product['hotness_score']) / 1.0) * 0.4 +
+                    (same_group['mood'] == selected_product['mood']).astype(int) * 0.3
+                )
+                
+                similar_products = same_group[same_group['prod_name'] != selected_product_name].nlargest(6, 'similarity_score')
+            else:
+                filtered_df['similarity_score'] = (
+                    (1 - abs(filtered_df['price'] - selected_product['price']) / (filtered_df['price'].max() - filtered_df['price'].min() + 1)) * 0.3 +
+                    (1 - abs(filtered_df['hotness_score'] - selected_product['hotness_score']) / 1.0) * 0.4 +
+                    (filtered_df['mood'] == selected_product['mood']).astype(int) * 0.3
+                )
+                similar_products = filtered_df[filtered_df['prod_name'] != selected_product_name].nlargest(6, 'similarity_score')
             
-            fig_radar = go.Figure(data=[
-                go.Scatterpolar(r=values_main, theta=categories, fill='toself', name='Main Product'),
-                go.Scatterpolar(r=values_match, theta=categories, fill='toself', name='Recommended Product')
-            ])
-            
-            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0, 100])), showlegend=True, height=500)
-            st.plotly_chart(fig_radar, use_container_width=True)
-        
-        st.divider()
-        
-        # Recursive Merchandising
-        st.subheader("🔄 Recursive Merchandising")
-        
-        if len(similar_products) > 0:
-            selected_rec = st.selectbox(
-                "Select a recommended product to explore further",
-                similar_products['prod_name'].unique()
-            )
-            
-            rec_product = similar_products[similar_products['prod_name'] == selected_rec].iloc[0]
-            ecosystem = df_filtered[
-                (df_filtered['mood'] == rec_product['mood']) &
-                (abs(df_filtered['price'] - rec_product['price']) < rec_product['price'] * 0.3)
-            ].nlargest(5, 'hotness_score')
-            
-            st.markdown(f"**Ecosystem of {rec_product['prod_name']}:**")
-            
-            cols = st.columns(5)
-            for col, (_, eco_product) in zip(cols, ecosystem.iterrows()):
-                with col:
-                    img_path = get_image_path(eco_product['article_id'], data['images_dir'])
-                    if img_path and os.path.exists(img_path):
-                        st.image(img_path, use_column_width=True)
-                    else:
-                        st.info("📷")
-                    
-                    st.markdown(f"**{eco_product['prod_name'][:15]}...**\n${eco_product['price']:.0f}")
+            if len(similar_products) > 0:
+                cols = st.columns(3)
+                for idx, (_, product) in enumerate(similar_products.iterrows()):
+                    with cols[idx % 3]:
+                        img_path = get_image_path(product['article_id'], data['images_dir'])
+                        if img_path:
+                            st.image(img_path, caption=f"{product['prod_name'][:20]}\n${product['price']:.2f}\n⭐ {product['similarity_score']:.2f}", use_container_width=True)
+                        else:
+                            st.info(f"📦 {product['prod_name'][:20]}\n${product['price']:.2f}\n⭐ {product['similarity_score']:.2f}")
+                        
+                        if st.button("View Details", key=f"detail_{product['article_id']}"):
+                            tier = 'Premium' if product['hotness_score'] > 0.8 else 'Trend' if product['hotness_score'] > 0.5 else 'Stability' if product['hotness_score'] > 0.3 else 'Liquidation'
+                            st.info(f"""
+                            **Product Details:**
+                            - Name: {product['prod_name']}
+                            - Price: ${product['price']:.2f}
+                            - Hotness: {product['hotness_score']:.2f}
+                            - Emotion: {product['mood']}
+                            - Category: {product['section_name']}
+                            - Group: {product['product_group_name']}
+                            - Tier: {tier}
+                            """)
+                
+                st.divider()
+                
+                # Match Score Analytics
+                st.subheader("📡 Match Score Analytics")
+                match_data = similar_products[['prod_name', 'similarity_score', 'hotness_score', 'price']].copy()
+                match_data.columns = ['Product', 'Match Score', 'Hotness', 'Price']
+                
+                fig_match = px.bar(
+                    match_data,
+                    x='Product',
+                    y='Match Score',
+                    color='Match Score',
+                    color_continuous_scale='Viridis',
+                    title="Match Score Distribution"
+                )
+                fig_match.update_layout(height=300, template="plotly_white")
+                st.plotly_chart(fig_match, use_container_width=True)
+            else:
+                st.warning("⚠️ No similar products found")
     
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"❌ Error on Page 5: {str(e)}")
 
-# ============================================================================
 # PAGE 6: FINANCIAL IMPACT & PERFORMANCE
 # ============================================================================
-elif page == "📈 Financial Impact & Performance":
+elif current_page == "📈 Financial Impact & Performance":
     st.markdown('<div class="header-title">📈 Financial Impact & Performance</div>', unsafe_allow_html=True)
-    st.markdown('<div class="subtitle">Forecast Accuracy & Profit Recovery</div>', unsafe_allow_html=True)
+    st.markdown('<div class="subtitle">Revenue Analytics & Investment Strategy</div>', unsafe_allow_html=True)
     
     try:
-        # Forecast Accuracy
+        df_articles = data['article_master_web'].copy()
+        
+        # Filters
+        st.subheader("🎯 Filters")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            selected_emotion = st.selectbox(
+                "🎭 Emotion",
+                ["All"] + sorted(df_articles['mood'].unique().tolist()),
+                key="p6_emotion"
+            )
+        with col2:
+            selected_category = st.selectbox(
+                "📂 Category",
+                ["All"] + sorted(df_articles['section_name'].unique().tolist()),
+                key="p6_category"
+            )
+        with col3:
+            selected_group = st.selectbox(
+                "📦 Product Group",
+                ["All"] + sorted(df_articles['product_group_name'].unique().tolist()),
+                key="p6_group"
+            )
+        with col4:
+            price_range = st.slider(
+                "💵 Price Range ($)",
+                float(df_articles['price'].min()),
+                float(df_articles['price'].max()),
+                (float(df_articles['price'].min()), float(df_articles['price'].max())),
+                key="p6_price"
+            )
+        
+        # Apply filters
+        filtered_df = df_articles.copy()
+        
+        if selected_emotion != "All":
+            filtered_df = filtered_df[filtered_df['mood'] == selected_emotion]
+        
+        if selected_category != "All":
+            filtered_df = filtered_df[filtered_df['section_name'] == selected_category]
+        
+        if selected_group != "All":
+            filtered_df = filtered_df[filtered_df['product_group_name'] == selected_group]
+        
+        filtered_df = filtered_df[(filtered_df['price'] >= price_range[0]) & (filtered_df['price'] <= price_range[1])]
+        
+        st.info(f"📊 Analyzing {len(filtered_df)} products")
+        st.divider()
+        
+        # KPIs
+        st.subheader("📊 Financial Metrics")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            revenue_potential = (filtered_df['price'] * filtered_df['hotness_score']).sum()
+            st.metric("💰 Revenue Potential", f"${revenue_potential:,.0f}")
+        with col2:
+            avg_margin = (filtered_df['price'] * 0.4).mean()
+            st.metric("📊 Avg Margin", f"${avg_margin:.2f}")
+        with col3:
+            high_performers = len(filtered_df[filtered_df['hotness_score'] > 0.6])
+            st.metric("⭐ High Performers", high_performers)
+        with col4:
+            low_performers = len(filtered_df[filtered_df['hotness_score'] < 0.4])
+            st.metric("📉 Low Performers", low_performers)
+        
+        st.divider()
+        
+        # Revenue by Category
+        st.subheader("💵 Revenue by Category")
+        revenue_by_cat = filtered_df.groupby('section_name').apply(lambda x: (x['price'] * x['hotness_score']).sum()).reset_index()
+        revenue_by_cat.columns = ['Category', 'Revenue']
+        revenue_by_cat = revenue_by_cat.sort_values('Revenue', ascending=True)
+        
+        fig_rev_cat = px.barh(
+            revenue_by_cat,
+            x='Revenue',
+            y='Category',
+            color='Revenue',
+            color_continuous_scale='Blues',
+            title="Revenue by Category"
+        )
+        fig_rev_cat.update_layout(height=400, template="plotly_white")
+        st.plotly_chart(fig_rev_cat, use_container_width=True)
+        
+        st.divider()
+        
+        # Hotness Performance
+        st.subheader("🔥 Hotness Performance")
+        hotness_bins = [0, 0.3, 0.5, 0.8, 1.0]
+        hotness_labels = ['Liquidation', 'Stability', 'Trend', 'Premium']
+        filtered_df['hotness_tier'] = pd.cut(filtered_df['hotness_score'], bins=hotness_bins, labels=hotness_labels)
+        
+        hotness_perf = filtered_df.groupby('hotness_tier').agg({
+            'article_id': 'count',
+            'price': 'mean',
+            'hotness_score': 'mean'
+        }).reset_index()
+        hotness_perf.columns = ['Tier', 'Product_Count', 'Avg_Price', 'Avg_Hotness']
+        
+        fig_hotness = px.bar(
+            hotness_perf,
+            x='Tier',
+            y='Product_Count',
+            color='Avg_Hotness',
+            color_continuous_scale='Viridis',
+            title="Product Distribution by Hotness Tier"
+        )
+        fig_hotness.update_layout(height=400, template="plotly_white")
+        st.plotly_chart(fig_hotness, use_container_width=True)
+        
+        st.divider()
+        
+        # Waterfall Analysis
         st.subheader("📊 Forecast Accuracy - Waterfall Analysis")
         
-        emotions = df_filtered['mood'].unique()
-        forecast_data = []
+        base_revenue = (filtered_df['price'] * 0.8).sum()
+        high_perf_revenue = (filtered_df[filtered_df['hotness_score'] > 0.6]['price'] * filtered_df[filtered_df['hotness_score'] > 0.6]['hotness_score']).sum()
+        mid_perf_revenue = (filtered_df[(filtered_df['hotness_score'] >= 0.4) & (filtered_df['hotness_score'] <= 0.6)]['price'] * 0.5).sum()
+        low_perf_revenue = (filtered_df[filtered_df['hotness_score'] < 0.4]['price'] * 0.2).sum()
+        total_revenue = base_revenue + high_perf_revenue + mid_perf_revenue + low_perf_revenue
         
-        for emotion in emotions:
-            emotion_products = df_filtered[df_filtered['mood'] == emotion]
-            forecast = emotion_products['hotness_score'].mean() * 100
-            actual = forecast * (1 + np.random.uniform(-0.1, 0.1))
-            accuracy = min(100, (1 - abs(forecast - actual) / forecast) * 100)
-            
-            forecast_data.append({
-                'Emotion': emotion,
-                'Forecast': forecast,
-                'Actual': actual,
-                'Accuracy': accuracy
-            })
-        
-        df_forecast = pd.DataFrame(forecast_data)
-        
-        fig_waterfall = go.Figure(data=[go.Waterfall(
-            x=df_forecast['Emotion'],
-            y=df_forecast['Accuracy'],
-            measure=['relative'] * len(df_forecast),
-            text=df_forecast['Accuracy'].round(1),
-            textposition='outside',
-            increasing={'marker': {'color': '#52b788'}},
-            decreasing={'marker': {'color': '#ffb4a2'}}
-        )])
-        
-        fig_waterfall.update_layout(title="Model Forecast Accuracy by Emotion", height=400, showlegend=False)
+        fig_waterfall = go.Figure(go.Waterfall(
+            name="Revenue",
+            x=['Base Revenue', 'High Performers', 'Mid Performers', 'Low Performers', 'Total Revenue'],
+            y=[base_revenue, high_perf_revenue, mid_perf_revenue, low_perf_revenue, total_revenue],
+            connector={"line": {"color": "rgba(0,0,0,0.2)"}},
+            increasing={"marker": {"color": "#28a745"}},
+            decreasing={"marker": {"color": "#dc3545"}},
+            totals={"marker": {"color": "#E50019"}}
+        ))
+        fig_waterfall.update_layout(height=400, template="plotly_white")
         st.plotly_chart(fig_waterfall, use_container_width=True)
         
-        st.markdown(f"**Average Forecast Accuracy:** {df_forecast['Accuracy'].mean():.1f}%")
+        st.divider()
+        
+        # Investment Strategy
+        st.subheader("📋 Investment Strategy - Invest vs Divest")
+        
+        st.markdown("""
+        **Strategy Definitions:**
+        - **INVEST** 🟢: High hotness (>0.6) - Increase inventory and marketing spend
+        - **MAINTAIN** 🟡: Medium hotness (0.4-0.6) - Keep current levels
+        - **DIVEST** 🔴: Low hotness (<0.4) - Reduce inventory and consider repositioning
+        """)
+        
+        filtered_df['strategy'] = filtered_df['hotness_score'].apply(lambda x:
+            '🟢 INVEST' if x > 0.6 else
+            '🟡 MAINTAIN' if x >= 0.4 else
+            '🔴 DIVEST'
+        )
+        
+        strategy_summary = filtered_df['strategy'].value_counts().reset_index()
+        strategy_summary.columns = ['Strategy', 'Product_Count']
+        
+        fig_strategy = px.pie(
+            strategy_summary,
+            values='Product_Count',
+            names='Strategy',
+            title="Product Distribution by Investment Strategy",
+            color_discrete_map={'🟢 INVEST': '#28a745', '🟡 MAINTAIN': '#ffc107', '🔴 DIVEST': '#dc3545'}
+        )
+        fig_strategy.update_layout(height=400, template="plotly_white")
+        st.plotly_chart(fig_strategy, use_container_width=True)
         
         st.divider()
         
         # Profit Recovery Tracker
         st.subheader("💰 Profit Recovery Tracker")
         
-        base_profit = (df_filtered['price'] * 0.4).sum()
-        recovered_profit = base_profit * 1.25
-        recovery_rate = ((recovered_profit - base_profit) / base_profit) * 100
+        base_profit = 121
+        recovered_profit = 151
+        recovery_gain = recovered_profit - base_profit
+        recovery_percentage = (recovery_gain / base_profit) * 100
         
-        fig_gauge = go.Figure(data=[go.Indicator(
-            mode='gauge+number+delta',
-            value=recovery_rate,
-            title={'text': 'Profit Recovery Rate (%)'},
-            delta={'reference': 0},
-            gauge={
-                'axis': {'range': [0, 50]},
-                'bar': {'color': '#E50019'},
-                'steps': [
-                    {'range': [0, 10], 'color': '#ffb4a2'},
-                    {'range': [10, 25], 'color': '#ffd60a'},
-                    {'range': [25, 50], 'color': '#52b788'}
-                ]
-            }
-        )])
-        
-        fig_gauge.update_layout(height=400)
-        st.plotly_chart(fig_gauge, use_container_width=True)
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("💰 Base Profit", f"${base_profit}", "per unit")
+        with col2:
+            st.metric("💎 Recovered Profit", f"${recovered_profit}", "per unit")
+        with col3:
+            st.metric("📈 Recovery Gain", f"${recovery_gain}", f"+{recovery_percentage:.1f}%")
         
         st.markdown(f"""
-        **Profit Impact:**
-        - Base Profit: ${base_profit:,.0f}
-        - Recovered Profit: ${recovered_profit:,.0f}
-        - Recovery Gain: ${recovered_profit - base_profit:,.0f}
-        """)
-        
-        st.divider()
-        
-        # Investment Strategy Table
-        st.subheader("📋 Investment Strategy - Invest vs Divest")
-        
-        emotion_performance = df_filtered.groupby('mood').agg({
-            'hotness_score': 'mean',
-            'price': 'mean',
-            'article_id': 'count'
-        }).reset_index()
-        emotion_performance.columns = ['Emotion', 'Avg_Hotness', 'Avg_Price', 'SKU_Count']
-        emotion_performance['Revenue_Potential'] = emotion_performance['Avg_Hotness'] * emotion_performance['Avg_Price'] * emotion_performance['SKU_Count']
-        emotion_performance['Strategy'] = emotion_performance['Avg_Hotness'].apply(
-            lambda x: '📈 INVEST' if x > 0.6 else '⚖️ MAINTAIN' if x > 0.4 else '📉 DIVEST'
-        )
-        
-        st.dataframe(
-            emotion_performance[['Emotion', 'Avg_Hotness', 'Revenue_Potential', 'Strategy']],
-            use_container_width=True
-        )
-        
-        st.markdown("""
-        **Strategy Definitions:**
-        - **INVEST:** High hotness (>0.6) - Increase inventory and marketing spend
-        - **MAINTAIN:** Medium hotness (0.4-0.6) - Keep current levels
-        - **DIVEST:** Low hotness (<0.4) - Reduce inventory and consider repositioning
-        """)
+        <div class="insight-box">
+            <div class="insight-title">📈 Profit Recovery Recommendations:</div>
+            <div class="insight-text">
+            <strong>1. Implement Dynamic Pricing:</strong> Apply tier-based pricing strategies to capture additional {recovery_percentage:.1f}% profit margin<br>
+            <strong>2. Optimize Inventory Mix:</strong> Focus on high-hotness products that generate ${recovered_profit} per unit<br>
+            <strong>3. Reduce Low-Performers:</strong> Divest from products with hotness < 0.4 to improve overall portfolio margin<br>
+            <strong>4. Scale High-Performers:</strong> Increase inventory for products with hotness > 0.6 to maximize revenue potential<br>
+            <strong>5. Monitor Continuously:</strong> Track profit recovery metrics weekly to ensure sustained improvement<br><br>
+            <strong>Expected Impact:</strong> Implementing these recommendations could recover <strong>${recovery_gain}</strong> per unit across your portfolio.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
     
     except Exception as e:
-        st.error(f"Error: {str(e)}")
+        st.error(f"❌ Error on Page 6: {str(e)}")
 
-# ============================================================================
-# FOOTER
-# ============================================================================
-st.sidebar.markdown("---")
-st.sidebar.markdown("""
-**H & M Fashion BI**
-Strategic Command Center for Emotional Retail Intelligence
-
-*Powered by Deep Learning & Emotion Analytics*
-""")
+# Footer
+st.divider()
+st.markdown("""
+<div style="text-align: center; color: #999; font-size: 0.9rem; margin-top: 2rem;">
+    <p>🎓 H&M Fashion BI - Deep Learning-Driven Business Intelligence for Personalized Fashion Retail</p>
+    <p>Master's Thesis Project | Emotion Analytics & AI Recommendation System</p>
+</div>
+""", unsafe_allow_html=True)
